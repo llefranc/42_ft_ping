@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   main.c                                             :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: lucaslefrancq <lucaslefrancq@student.42    +#+  +:+       +#+        */
+/*   By: llefranc <llefranc@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/04/24 12:54:16 by lucaslefran       #+#    #+#             */
-/*   Updated: 2023/04/24 21:15:32 by lucaslefran      ###   ########.fr       */
+/*   Updated: 2023/04/25 11:46:22 by llefranc         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -19,10 +19,41 @@
 #include <netdb.h>
 #include <arpa/inet.h>
 #include <string.h>
+#include <errno.h>
+
+#include <linux/icmp.h>
+
+// struct sockaddr_in {
+// 	sa_family_t    sin_family; /* address family: AF_INET */
+// 	in_port_t      sin_port;   /* port in network byte order */
+// 	struct in_addr sin_addr;   /* internet address */
+// };
+
+// struct in_addr {
+// 	uint32_t       s_addr;     /* address in network byte order */
+// };
+
+// struct icmphdr {
+//   __u8		type;
+//   __u8		code;
+//   __sum16	checksum;
+//   union {
+// 	struct {
+// 		__be16	id;
+// 		__be16	sequence;
+// 	} echo;
+// 	__be32	gateway;
+// 	struct {
+// 		__be16	__unused;
+// 		__be16	mtu;
+// 	} frag;
+// 	__u8	reserved[4];
+//   } un;
+// };
 
 
-// #include <icmp.h> >>>> utiliser ces headers pour les define
-// #include <ip.h>
+// #define ICMP_ECHO		8	/* Echo Request			*/
+// #define ICMP_ECHOREPLY		0	/* Echo Reply			*/
 
 #define BUFF_SIZE 20
 
@@ -34,14 +65,6 @@ struct pinginfo {
 	int nb_recv;
 };
 
-struct icmppack {
-	uint8_t type;
-	uint8_t code;
-	uint8_t checksum;
-	char *data;
-	uint8_t data_len;
-};
-
 void handler(int signum)
 {
 	if (signum == SIGINT)
@@ -50,28 +73,41 @@ void handler(int signum)
 		recv_sigalrm = 1;
 }
 
-static inline struct addrinfo * init_addr(char *input)
+static inline struct addrinfo * init_addr(char *host)
 {
 	struct addrinfo hints = {
-		.ai_family = PF_INET, // renommer en AF_INET ?
+		.ai_family = AF_INET, // renommer en AF_INET ?
 		.ai_socktype = SOCK_RAW,
+		.ai_protocol = IPPROTO_ICMP,
 	};
+
+// struct addrinfo {
+// 	int              ai_flags;
+// 	int              ai_family;
+// 	int              ai_socktype;
+// 	int              ai_protocol;
+// 	socklen_t        ai_addrlen;
+// 	struct sockaddr *ai_addr; // ip address
+// 	char            *ai_canonname;
+// 	struct addrinfo *ai_next;
+// };
+
 	// https://www.gta.ufrj.br/ensino/eel878/sockets/sockaddr_inman.html
-	struct addr_in addr;
+	// struct in_addr addr;
 	struct addrinfo *res;
 	int ret;
 
 
-	if ((ret = inet_pton(PF_INET, input, &addr)) == -1) {
-		printf("inet_pton err %s\n", strerror(errno));
-		return NULL;
-	}
-	if (!ret)
-		printf("couldn't parse ip addr\n");
-	else
-		printf("couldn't parse ip addr\n");
+	// if ((ret = inet_pton(AF_INET, host, &addr)) == -1) {
+	// 	printf("inet_pton err %s\n", strerror(errno));
+	// 	return NULL;
+	// }
+	// if (!ret)
+	// 	printf("couldn't parse ip addr\n");
+	// else
+	// 	printf("couldn't parse ip addr\n");
 
-	if ((ret = getaddrinfo(input, "http", &hints, &res)) != 0) {
+	if ((ret = getaddrinfo(host, NULL, &hints, &res)) != 0) {
 		printf("getaddrinfo err %s\n", gai_strerror(ret));
 		return NULL;
 	}
@@ -90,8 +126,9 @@ void send_icmp_echo_req(struct pinginfo *pi)
 void recv_icmp_echo_rep(struct pinginfo *pi)
 {
 	// mettre ici le num sec
-	printf("Icmp echo response %d received\n", 1);
 	pi->nb_recv++;
+	printf("Icmp echo response %d received\n", pi->nb_recv);
+	sleep(2);
 }
 
 // void getnameinf(void)
@@ -103,19 +140,19 @@ void recv_icmp_echo_rep(struct pinginfo *pi)
 
 static inline float calc_perc_transmit(const struct pinginfo *pi)
 {
-	return 100.0 - (float)(pi->nb_recv) / (float)pi->nb_send;
+	return (1.0 - (float)(pi->nb_recv) / (float)pi->nb_send) * 100.0;
 }
 
-static inline void print_end_info(void)
+static inline void print_end_info(char *host, const struct pinginfo *pi)
 {
-	printf("--- %s ping statistics ---\n", av[ac - 1]);
+	printf("--- %s ping statistics ---\n", host);
 	printf("%d packets transmitted, %d packets received, %.1f%% packet "
-	       "loss\n", pi.nb_send, pi.nb_recv, calc_perc_transmit(&pi));
-	if (pi.nb_recv)
-		printf("round-trip min/avg/max/stddev = xxx/xxx/xxx/xxx ms");
+	       "loss\n", pi->nb_send, pi->nb_recv, calc_perc_transmit(pi));
+	if (pi->nb_recv)
+		printf("round-trip min/avg/max/stddev = xxx/xxx/xxx/xxx ms\n");
 }
 
-static int check(int ac, char **av)
+static int check(int ac)
 {
 	if (getuid() != 0) {
 		printf("err program should be launched as root\n");
@@ -130,7 +167,7 @@ static int check(int ac, char **av)
 
 int main(int ac, char **av)
 {
-	int raw_sock;
+	int sfd;
 	struct addrinfo *res;
 	struct pinginfo pi = {};
 
@@ -141,11 +178,17 @@ int main(int ac, char **av)
 		return 1;
 
 	// Replace here with IPPROTO_ICMP
-	if ((raw_sock = socket(PF_INET, SOCK_RAW, 1)) == -1) {
+	if ((sfd = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP)) == -1) {
 		printf("Err socket\n");
 		return 1;
 	} else {
 		printf("raw socket created\n");
+	}
+
+	uint8_t ttl = 64;
+	if (setsockopt(sfd, IPPROTO_IP, IP_TTL, &ttl, sizeof(ttl)) == -1) {
+		printf("setsockopt err: %s\n", strerror(errno));
+		return 1;
 	}
 
 
@@ -162,7 +205,7 @@ int main(int ac, char **av)
 		}
 		recv_icmp_echo_rep(&pi);
 	}
-	print_end_info();
+	print_end_info(av[ac - 1], &pi);
 	freeaddrinfo(res);
 	return 0;
 }
