@@ -6,9 +6,11 @@
 /*   By: llefranc <llefranc@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/04/24 12:54:16 by lucaslefran       #+#    #+#             */
-/*   Updated: 2023/04/26 15:53:04 by llefranc         ###   ########.fr       */
+/*   Updated: 2023/04/26 17:57:26 by llefranc         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
+
+#include "ping.h"
 
 #include <stdio.h>
 #include <sys/types.h>
@@ -27,7 +29,6 @@
 
 #include <netinet/ip_icmp.h>
 
-#define IP_TTL_VALUE 64
 
 // struct sockaddr_in {
 // 	sa_family_t    sin_family; /* address family: AF_INET */
@@ -61,122 +62,21 @@
 // #define ICMP_ECHO		8	/* Echo Request			*/
 // #define ICMP_ECHOREPLY		0	/* Echo Reply			*/
 
-#define PING_BODY_SIZE 56
 
-static _Bool recv_sigint = 0;
-static _Bool recv_sigalrm = 0;
-
-struct pinginfo {
-	char *host;
-	struct sockaddr_in remote_addr;
-	char str_sin_addr[sizeof("xxx.xxx.xxx.xxx")];
-	int nb_send;
-	int nb_recv_ok;
-	int nb_recv_err;
-};
+_Bool pingloop = 1;
+_Bool send_packet = 1;
 
 void handler(int signum)
 {
 	if (signum == SIGINT)
-		recv_sigint = 1;
+		pingloop = 0;
 	else if (signum == SIGALRM)
-		recv_sigalrm = 1;
-}
-
-static int check_launch(int ac)
-{
-	if (getuid() != 0) {
-		printf("err program should be launched as root\n");
-		return -1;
-	}
-	if (ac == 1) {
-		printf("Usage error need 1 arg\n");
-		return -1;
-	}
-	return 0;
-}
-
-static inline int init_addr(struct pinginfo *pi)
-{
-	struct addrinfo hints = {
-		.ai_family = AF_INET,
-		.ai_socktype = SOCK_RAW,
-		.ai_protocol = IPPROTO_ICMP
-	};
-	struct addrinfo *tmp;
-	int ret;
-
-	if ((ret = getaddrinfo(pi->host, NULL, &hints, &tmp)) != 0) {
-		printf("getaddrinfo err %s\n", gai_strerror(ret));
-		return -1;
-	}
-	pi->remote_addr = *(struct sockaddr_in *)tmp->ai_addr;
-	freeaddrinfo(tmp);
-
-	if (inet_ntop(AF_INET, &pi->remote_addr.sin_addr, pi->str_sin_addr,
-	    sizeof(pi->str_sin_addr)) == NULL) {
-		printf("inet_ntop err: %s\n", strerror(errno));
-		return -1;
-	}
-	return 0;
-}
-
-static inline int init_socket(uint8_t ttl)
-{
-	int sock_fd;
-
-	if ((sock_fd = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP)) == -1) {
-		printf("socket err: %s\n", strerror(errno));
-		return -1;
-	}
-	if (setsockopt(sock_fd, IPPROTO_IP, IP_TTL, &ttl, sizeof(ttl)) == -1) {
-		printf("setsockopt err: %s\n", strerror(errno));
-		return -1;
-	}
-	return sock_fd;
+		send_packet = 1;
 }
 
 // --- india.fr ping statistics ---
 // 168 packets transmitted, 0 received, +44 errors, 100% packet loss, time 169609ms
 
-static inline void print_start_info(const struct pinginfo *pi)
-{
-	printf("PING %s (%s) %d(%zu) bytes of data.\n", pi->host,
-	       pi->str_sin_addr, PING_BODY_SIZE,
-	       PING_BODY_SIZE + sizeof(struct iphdr) + sizeof(struct icmphdr));
-}
-
-static inline float calc_perc_transmit(const struct pinginfo *pi)
-{
-	return (1.0 - (float)(pi->nb_recv_ok) / (float)pi->nb_send) * 100.0;
-}
-
-static inline int calc_ms_elapsed(const struct timeval *start_time,
-			      const struct timeval *end_time)
-{
-	return (end_time->tv_sec - start_time->tv_sec) * 1000
-	       + (end_time->tv_usec - start_time->tv_usec) / 1000;
-}
-
-static inline void print_end_info(const struct pinginfo *pi,
-				  const struct timeval *start_time,
-				  const struct timeval *end_time)
-{
-	int ms_elapsed = calc_ms_elapsed(start_time, end_time);
-
-	printf("\n--- %s ping statistics ---\n", pi->host);
-	printf("%d packets transmitted, %d received, ", pi->nb_send,
-	       pi->nb_recv_ok);
-
-	if (pi->nb_recv_err)
-		printf("+%d errors, ", pi->nb_recv_err);
-
-	printf("%d%% packet loss, time %dms\n", (int)calc_perc_transmit(pi),
-	       ms_elapsed);
-
-	if (pi->nb_recv_ok)
-		printf("rtt min/avg/max/stddev = xxx/xxx/xxx/xxx ms\n");
-}
 
 // struct icmphdr {
 //   __u8		type;
@@ -197,34 +97,6 @@ static inline void print_end_info(const struct pinginfo *pi,
 // };
 
 // implementer en plus le recv icmp type
-int print_packet_info(const struct pinginfo *pi, int nb_recv_bytes, const uint8_t *buf)
-{
-	struct timeval now;
-	struct iphdr *p_iph;
-	struct icmphdr *p_icmph;
-	struct timeval *p_body;
-
-	if (gettimeofday(&now, NULL) == -1) {
-		printf("gettimeofday err: %s\n", strerror(errno));
-		return -1;
-	}
-	p_iph = (struct iphdr *)buf;
-	p_icmph = (struct icmphdr *)(buf + sizeof(*p_iph));
-	p_body = (struct timeval *)(buf + sizeof(*p_iph) + sizeof(*p_icmph));
-
-	printf("------------ recv beg -----------\n");
-	for (int i = 0; i < nb_recv_bytes; ++i) {
-		printf("%02x ", buf[i]);
-	}
-	printf("\n");
-	printf("------------ recv end -----------\n");
-
-	printf("%ld bytes from %s: icmp_seq=%d ttl=%d ",
-	       nb_recv_bytes - sizeof(*p_iph), pi->str_sin_addr,
-	       p_icmph->un.echo.sequence, p_iph->ttl);
-	printf("time=%ld us\n", now.tv_usec - p_body->tv_usec);
-	return 0;
-}
 
 unsigned short checksum(unsigned short *ptr, int nbytes) {
 	unsigned long sum;
@@ -245,19 +117,19 @@ unsigned short checksum(unsigned short *ptr, int nbytes) {
 	return (unsigned short) ~sum;
 }
 
-int send_icmp_echo_req(int sock_fd, struct pinginfo *pi,
-		       struct timeval *last_send_time)
+int send_icmp_echo_req(int sock_fd, struct pinginfo *pi)
 {
 	ssize_t nb_bytes;
 	static int seq = 1;
 	struct icmphdr *hdr;
 	uint8_t buf[sizeof(struct icmphdr) + PING_BODY_SIZE] = {};
 
-	if (gettimeofday(last_send_time, NULL) == -1) {
+	if (gettimeofday(&pi->time_last_send, NULL) == -1) {
 		printf("gettimeofday err: %s\n", strerror(errno));
 		return -1;
 	}
-	memcpy(buf + sizeof(*hdr), last_send_time, sizeof(*last_send_time));
+	memcpy(buf + sizeof(*hdr), &pi->time_last_send,
+	       sizeof(pi->time_last_send));
 
 	hdr = (struct icmphdr *)buf;
 	hdr->type = ICMP_ECHO;
@@ -284,7 +156,7 @@ int send_icmp_echo_req(int sock_fd, struct pinginfo *pi,
 	return 0;
 }
 
-static inline pid_t get_packet_pid(uint8_t *buf)
+pid_t get_packet_pid(uint8_t *buf)
 {
 	struct icmphdr *hdr = (struct icmphdr *)(buf + sizeof(struct iphdr));
 
@@ -323,25 +195,6 @@ int recv_icmp_echo_rep(int sock_fd, struct pinginfo *pi)
 	return 0;
 }
 
-static int ping_loop(int sock_fd, struct pinginfo *pi,
-		     struct timeval *last_send_time)
-{
-	if (send_icmp_echo_req(sock_fd, pi, last_send_time) == -1)
-		return -1;
-	alarm(1);
-
-	while (!recv_sigint) {
-		if (recv_sigalrm) {
-			recv_sigalrm = 0;
-			if (send_icmp_echo_req(sock_fd, pi, last_send_time) == -1)
-				return -1;
-			alarm(1);
-		}
-		if (recv_icmp_echo_rep(sock_fd, pi) == -1)
-			return -1;
-	}
-	return 0;
-}
 
 // split un peu mon gros fichier degueu en plusieurs fichiers
 // print
@@ -353,35 +206,34 @@ int main(int ac, char **av)
 {
 	int sock_fd;
 	struct pinginfo pi = {};
-	struct timeval start_time = {};
-	struct timeval last_send_time = {};
 
-	if (check_launch(ac) == -1)
+	if (ping_check(ac) == -1)
 		return 1;
-	pi.host = av[ac - 1];
-	if (gettimeofday(&start_time, NULL) == -1) {
-		printf("gettimeofday err: %s\n", strerror(errno));
-		goto fatal_err;
-	}
-	if (init_addr(&pi) == -1)
-		goto fatal_err;
-	if ((sock_fd = init_socket(IP_TTL_VALUE)) == -1)
-		return 1; // a revoir
+	if (ping_init(&sock_fd, &pi, av[ac - 1], IP_TTL_VALUE) == -1)
+		goto fatal;
 
 	signal(SIGINT, &handler);
 	signal(SIGALRM, &handler);
 
 	print_start_info(&pi);
-	if (ping_loop(sock_fd, &pi, &last_send_time) == -1)
-		goto fatal_err_close_sock;
-	print_end_info(&pi, &start_time, &last_send_time);
+	while (pingloop) {
+		if (send_packet) {
+			send_packet = 0;
+			if (send_icmp_echo_req(sock_fd, &pi) == -1)
+				goto fatal_close_sock;
+			alarm(1);
+		}
+		if (recv_icmp_echo_rep(sock_fd, &pi) == -1)
+			goto fatal_close_sock;
+	}
+	print_end_info(&pi);
 
 	close(sock_fd);
 	return 0;
 
-fatal_err_close_sock:
+fatal_close_sock:
 	close(sock_fd);
-fatal_err:
-	printf("Fatal error: ft_ping exited unexpectedly\n");
+fatal:
+	printf("ft_ping: fatal error\n");
 	return 1;
 }

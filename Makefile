@@ -3,18 +3,18 @@
 #                                                         :::      ::::::::    #
 #    Makefile                                           :+:      :+:    :+:    #
 #                                                     +:+ +:+         +:+      #
-#    By: lucaslefrancq <lucaslefrancq@student.42    +#+  +:+       +#+         #
+#    By: llefranc <llefranc@student.42.fr>          +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2023/04/24 12:53:39 by lucaslefran       #+#    #+#              #
-#    Updated: 2023/04/24 13:09:31 by lucaslefran      ###   ########.fr        #
+#    Updated: 2023/04/26 18:08:07 by llefranc         ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
 NAME		=	ft_ping
 
-SRCS		=	main.c
+SRCS		=	main.c init.c print.c
 
-# HDRS		=
+HDRS		=	ping.h
 
 PATH_SRCS	=	src/
 
@@ -26,7 +26,6 @@ FLAGS		=	-g -fsanitize=address -Wall -Werror -Wextra
 
 all		:	$(NAME)
 
-# $(NAME)		:	$(addprefix $(PATH_SRCS), $(OBJS)) $(HDRS)
 $(NAME)		:	$(addprefix $(PATH_SRCS), $(OBJS))
 				$(CC) -o $(NAME) $(addprefix $(PATH_SRCS), $(OBJS)) $(FLAGS)
 				@echo "ping is ready";
@@ -41,5 +40,5 @@ re		:	fclean all
 
 .PHONY		:	all clean fclean re
 
-%.o		:	%.c
-				@$(CC) $(FLAGS) -o $@ -c $<
+%.o		:	%.c $(addprefix $(PATH_SRCS), $(HDRS))
+				$(CC) $(FLAGS) -o $@ -c $<
