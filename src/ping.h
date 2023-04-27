@@ -6,20 +6,17 @@
 /*   By: llefranc <llefranc@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/04/26 16:21:28 by llefranc          #+#    #+#             */
-/*   Updated: 2023/04/27 19:35:37 by llefranc         ###   ########.fr       */
+/*   Updated: 2023/04/27 20:07:44 by llefranc         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #ifndef PING_H
 #define PING_H
 
-#define IP_TTL_VALUE 64
-#define PING_BODY_SIZE 56
-
 #include <netinet/ip.h>
 
-extern _Bool recv_sigint;
-extern _Bool recv_sigalrm;
+#define IP_TTL_VALUE 64
+#define ICMP_BODY_SIZE 56
 
 /**
  * Contain the information relative to the ICMP packets.
@@ -41,7 +38,7 @@ struct packinfo {
  * Contain the information relative to the remote socket to ping.
  * @host: The host provided as argument to ft_ping.
  * @remote_addr: The socket remote address.
- * @str_sin_addr: A string with the resolved IP address from hostname.
+ * @str_sin_addr: A string with the resolved IPv4 address from hostname.
  */
 struct sockinfo {
 	char *host;
@@ -59,5 +56,10 @@ int print_recv_info(const struct sockinfo *s_info, int packet_len,
 		    const uint8_t *buf);
 void print_end_info(const struct sockinfo *s_info,
 		    const struct packinfo *p_info);
+
+int send_icmp_ping(int sock_fd, const struct sockinfo *s_info,
+		   struct packinfo *p_info);
+int recv_icmp_ping(int sock_fd, const struct sockinfo *s_info,
+		   struct packinfo *p_info);
 
 #endif /* PING_H */

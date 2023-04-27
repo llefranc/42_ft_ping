@@ -6,13 +6,13 @@
 #    By: llefranc <llefranc@student.42.fr>          +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2023/04/24 12:53:39 by lucaslefran       #+#    #+#              #
-#    Updated: 2023/04/26 18:08:07 by llefranc         ###   ########.fr        #
+#    Updated: 2023/04/27 19:55:47 by llefranc         ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
 NAME		=	ft_ping
 
-SRCS		=	main.c init.c print.c
+SRCS		=	main.c init.c print.c icmp.c
 
 HDRS		=	ping.h
 

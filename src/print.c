@@ -6,7 +6,7 @@
 /*   By: llefranc <llefranc@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/04/26 16:29:34 by llefranc          #+#    #+#             */
-/*   Updated: 2023/04/27 19:30:05 by llefranc         ###   ########.fr       */
+/*   Updated: 2023/04/27 20:07:33 by llefranc         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -52,8 +52,8 @@ static inline int calc_ms_elapsed(const struct timeval *start,
 void print_start_info(const struct sockinfo *pi)
 {
 	printf("PING %s (%s) %d(%zu) bytes of data.\n", pi->host,
-	       pi->str_sin_addr, PING_BODY_SIZE,
-	       PING_BODY_SIZE + sizeof(struct iphdr) + sizeof(struct icmphdr));
+	       pi->str_sin_addr, ICMP_BODY_SIZE,
+	       ICMP_BODY_SIZE + sizeof(struct iphdr) + sizeof(struct icmphdr));
 }
 
 /**
