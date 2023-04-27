@@ -6,7 +6,7 @@
 /*   By: llefranc <llefranc@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/04/26 16:21:28 by llefranc          #+#    #+#             */
-/*   Updated: 2023/04/26 18:07:51 by llefranc         ###   ########.fr       */
+/*   Updated: 2023/04/27 19:35:37 by llefranc         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -21,23 +21,43 @@
 extern _Bool recv_sigint;
 extern _Bool recv_sigalrm;
 
-struct pinginfo {
-	char *host;
-	struct sockaddr_in remote_addr;
-	char str_sin_addr[sizeof("xxx.xxx.xxx.xxx")];
+/**
+ * Contain the information relative to the ICMP packets.
+ * @nb_send: The number of ICMP echo request packets sent.
+ * @nb_recv_ok: The number of ICMP echo response packets received.
+ * @nb_recv_err: The number of ICMP packets other than response packet received.
+ * @time_first_send: The timestamp of the first ICMP packet sent.
+ * @time_last_send:The timestamp of the last ICMP packet sent.
+ */
+struct packinfo {
 	int nb_send;
 	int nb_recv_ok;
 	int nb_recv_err;
-	struct timeval time_start;
+	struct timeval time_first_send;
 	struct timeval time_last_send;
 };
 
-int ping_check(int ac);
-int ping_init(int *sock_fd, struct pinginfo *pi, char *host, int ttl);
+/**
+ * Contain the information relative to the remote socket to ping.
+ * @host: The host provided as argument to ft_ping.
+ * @remote_addr: The socket remote address.
+ * @str_sin_addr: A string with the resolved IP address from hostname.
+ */
+struct sockinfo {
+	char *host;
+	struct sockaddr_in remote_addr;
+	char str_sin_addr[sizeof("xxx.xxx.xxx.xxx")];
+};
 
-void print_start_info(const struct pinginfo *pi);
-int print_packet_info(const struct pinginfo *pi, int packet_len,
-		      const uint8_t *buf);
-void print_end_info(const struct pinginfo *pi);
+int ping_check(int ac);
+int ping_init(int *sock_fd, struct sockinfo *s_info, struct packinfo *p_info,
+	      char *host, int ttl);
+
+void debug_print_packet(const char *step, const uint8_t *buf, int size);
+void print_start_info(const struct sockinfo *s_info);
+int print_recv_info(const struct sockinfo *s_info, int packet_len,
+		    const uint8_t *buf);
+void print_end_info(const struct sockinfo *s_info,
+		    const struct packinfo *p_info);
 
 #endif /* PING_H */

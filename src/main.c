@@ -6,7 +6,7 @@
 /*   By: llefranc <llefranc@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/04/24 12:54:16 by lucaslefran       #+#    #+#             */
-/*   Updated: 2023/04/26 17:57:26 by llefranc         ###   ########.fr       */
+/*   Updated: 2023/04/27 19:29:30 by llefranc         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -117,19 +117,20 @@ unsigned short checksum(unsigned short *ptr, int nbytes) {
 	return (unsigned short) ~sum;
 }
 
-int send_icmp_echo_req(int sock_fd, struct pinginfo *pi)
+int send_icmp_echo_req(int sock_fd, const struct sockinfo *s_info,
+		       struct packinfo *p_info)
 {
 	ssize_t nb_bytes;
 	static int seq = 1;
 	struct icmphdr *hdr;
 	uint8_t buf[sizeof(struct icmphdr) + PING_BODY_SIZE] = {};
 
-	if (gettimeofday(&pi->time_last_send, NULL) == -1) {
+	if (gettimeofday(&p_info->time_last_send, NULL) == -1) {
 		printf("gettimeofday err: %s\n", strerror(errno));
 		return -1;
 	}
-	memcpy(buf + sizeof(*hdr), &pi->time_last_send,
-	       sizeof(pi->time_last_send));
+	memcpy(buf + sizeof(*hdr), &p_info->time_last_send,
+	       sizeof(p_info->time_last_send));
 
 	hdr = (struct icmphdr *)buf;
 	hdr->type = ICMP_ECHO;
@@ -139,8 +140,8 @@ int send_icmp_echo_req(int sock_fd, struct pinginfo *pi)
 	hdr->checksum = checksum((unsigned short *)buf, sizeof(buf));
 
 	if ((nb_bytes = sendto(sock_fd, buf, sizeof(buf), 0,
-	    (const struct sockaddr *)&pi->remote_addr,
-	    sizeof(pi->remote_addr))) == -1) {
+	    (const struct sockaddr *)&s_info->remote_addr,
+	    sizeof(s_info->remote_addr))) == -1) {
 		printf("sendto err: %s\n", strerror(errno));
 	} else {
 		// printf("send %zu bytes\n", nb_bytes);
@@ -152,7 +153,7 @@ int send_icmp_echo_req(int sock_fd, struct pinginfo *pi)
 	printf("\n");
 	printf("------------ send end -----------\n");
 
-	pi->nb_send++;
+	p_info->nb_send++;
 	return 0;
 }
 
@@ -163,7 +164,8 @@ pid_t get_packet_pid(uint8_t *buf)
 	return hdr->un.echo.id;
 }
 
-int recv_icmp_echo_rep(int sock_fd, struct pinginfo *pi)
+int recv_icmp_echo_rep(int sock_fd, const struct sockinfo *s_info,
+		       struct packinfo *p_info)
 {
 	struct msghdr msg = {};
 	struct iovec iov[1] = {};
@@ -187,11 +189,9 @@ int recv_icmp_echo_rep(int sock_fd, struct pinginfo *pi)
 	}
 	// if (get)
 	// rajotuer ici une fonction pour check le type de retour
-	if (print_packet_info(pi, nb_bytes, buf) == -1)
+	if (print_recv_info(s_info, nb_bytes, buf) == -1)
 		return -1;
-	pi->nb_recv_ok++;
-	// printf("Icmp echo response %d received\n", pi->nb_recv_ok);
-	// sleep(2);
+	p_info->nb_recv_ok++;
 	return 0;
 }
 
@@ -204,29 +204,32 @@ int recv_icmp_echo_rep(int sock_fd, struct pinginfo *pi)
 // rename recv_ping
 int main(int ac, char **av)
 {
+	char *host;
 	int sock_fd;
-	struct pinginfo pi = {};
+	struct sockinfo s_info = {};
+	struct packinfo p_info = {};
 
 	if (ping_check(ac) == -1)
 		return 1;
-	if (ping_init(&sock_fd, &pi, av[ac - 1], IP_TTL_VALUE) == -1)
+	host = av[ac - 1];
+	if (ping_init(&sock_fd, &s_info, &p_info, host, IP_TTL_VALUE) == -1)
 		goto fatal;
 
 	signal(SIGINT, &handler);
 	signal(SIGALRM, &handler);
 
-	print_start_info(&pi);
+	print_start_info(&s_info);
 	while (pingloop) {
 		if (send_packet) {
 			send_packet = 0;
-			if (send_icmp_echo_req(sock_fd, &pi) == -1)
+			if (send_icmp_echo_req(sock_fd, &s_info, &p_info) == -1)
 				goto fatal_close_sock;
 			alarm(1);
 		}
-		if (recv_icmp_echo_rep(sock_fd, &pi) == -1)
+		if (recv_icmp_echo_rep(sock_fd, &s_info, &p_info) == -1)
 			goto fatal_close_sock;
 	}
-	print_end_info(&pi);
+	print_end_info(&s_info, &p_info);
 
 	close(sock_fd);
 	return 0;

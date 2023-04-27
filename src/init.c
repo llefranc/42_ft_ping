@@ -6,7 +6,7 @@
 /*   By: llefranc <llefranc@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/04/26 16:29:06 by llefranc          #+#    #+#             */
-/*   Updated: 2023/04/26 17:56:13 by llefranc         ###   ########.fr       */
+/*   Updated: 2023/04/27 19:28:24 by llefranc         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -46,7 +46,7 @@ int ping_check(int ac)
  * Init the internet remote socket address and its string representation based
  * on host provided as argument (hosts ex: 127.0.0.1 or google.com).
  */
-static int init_sock_addr(struct pinginfo *pi)
+static int init_sock_addr(struct sockinfo *s_info)
 {
 	struct addrinfo hints = {
 		.ai_family = AF_INET,
@@ -56,15 +56,15 @@ static int init_sock_addr(struct pinginfo *pi)
 	struct addrinfo *tmp;
 	int ret;
 
-	if ((ret = getaddrinfo(pi->host, NULL, &hints, &tmp)) != 0) {
+	if ((ret = getaddrinfo(s_info->host, NULL, &hints, &tmp)) != 0) {
 		printf("getaddrinfo: %s\n", gai_strerror(ret));
 		return -1;
 	}
-	pi->remote_addr = *(struct sockaddr_in *)tmp->ai_addr;
+	s_info->remote_addr = *(struct sockaddr_in *)tmp->ai_addr;
 	freeaddrinfo(tmp);
 
-	if (inet_ntop(AF_INET, &pi->remote_addr.sin_addr, pi->str_sin_addr,
-	    sizeof(pi->str_sin_addr)) == NULL) {
+	if (inet_ntop(AF_INET, &s_info->remote_addr.sin_addr,
+	    s_info->str_sin_addr, sizeof(s_info->str_sin_addr)) == NULL) {
 		printf("inet_ntop: %s\n", strerror(errno));
 		return -1;
 	}
@@ -92,26 +92,28 @@ static int create_socket(uint8_t ttl)
 
 /**
  * Does several initialization:
- *	- Initialized pinginfo structure.
+ *	- Initialize sockinfo/packinfo structures.
  * 	- Find internet remote socket address based on host (ex: google.com).
  *	- Create raw socket with ICMP protocol.
  *	- Set the ttl for ip layer.
  * @sock_fd: Will be initialized with raw socket file descriptor.
- * @pi: Will be initialized with socket remote address info and start time.
+ * @s_info: Will be init with socket remote address info.
+ * @p_info: Init first_time_send member to now.
  * @host: The host to ping.
  * @ttl: Ttl value for ip layer.
  *
  * Return: 0 on success, -1 if the initialization failed. On failure, the file
  *         descriptor is automatically closed.
  */
-int ping_init(int *sock_fd, struct pinginfo *pi, char *host, int ttl)
+int ping_init(int *sock_fd, struct sockinfo *s_info, struct packinfo *p_info,
+	      char *host, int ttl)
 {
-	pi->host = host;
-	if (gettimeofday(&pi->time_start, NULL) == -1) {
+	if (gettimeofday(&p_info->time_first_send, NULL) == -1) {
 		printf("gettimeofday: %s\n", strerror(errno));
 		return -1;
 	}
-	if (init_sock_addr(pi) == -1)
+	s_info->host = host;
+	if (init_sock_addr(s_info) == -1)
 		return -1;
 	if ((*sock_fd = create_socket(ttl)) == -1)
 		return -1;

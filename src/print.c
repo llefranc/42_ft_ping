@@ -6,7 +6,7 @@
 /*   By: llefranc <llefranc@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/04/26 16:29:34 by llefranc          #+#    #+#             */
-/*   Updated: 2023/04/26 18:11:41 by llefranc         ###   ########.fr       */
+/*   Updated: 2023/04/27 19:30:05 by llefranc         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -31,9 +31,9 @@ void debug_print_packet(const char *step, const uint8_t *buf, int size)
 /**
  * Calculate the percentage of lost packets.
  */
-static inline float calc_perc_packet_loss(const struct pinginfo *pi)
+static inline float calc_perc_packet_loss(const struct packinfo *p)
 {
-	return (1.0 - (float)(pi->nb_recv_ok) / (float)pi->nb_send) * 100.0;
+	return (1.0 - (float)(p->nb_recv_ok) / (float)p->nb_send) * 100.0;
 }
 
 /**
@@ -49,7 +49,7 @@ static inline int calc_ms_elapsed(const struct timeval *start,
 /**
  * Print the information at start of ft_ping.
  */
-void print_start_info(const struct pinginfo *pi)
+void print_start_info(const struct sockinfo *pi)
 {
 	printf("PING %s (%s) %d(%zu) bytes of data.\n", pi->host,
 	       pi->str_sin_addr, PING_BODY_SIZE,
@@ -59,7 +59,7 @@ void print_start_info(const struct pinginfo *pi)
 /**
  * Print number of bytes and rtt of a received packet.
  */
-int print_packet_info(const struct pinginfo *pi, int packet_len,
+int print_recv_info(const struct sockinfo *s_info, int packet_len,
 		      const uint8_t *buf)
 {
 	struct timeval now;
@@ -78,7 +78,7 @@ int print_packet_info(const struct pinginfo *pi, int packet_len,
 	debug_print_packet("recv", buf, packet_len);
 
 	printf("%ld bytes from %s: ", packet_len - sizeof(*p_iph),
-	       pi->str_sin_addr);
+	       s_info->str_sin_addr);
 	printf("icmp_seq=%d ttl=%d ", p_icmph->un.echo.sequence, p_iph->ttl);
 	printf("time=%ld us\n", now.tv_usec - p_body->tv_usec);
 	return 0;
@@ -88,20 +88,22 @@ int print_packet_info(const struct pinginfo *pi, int packet_len,
  * Print the different statistics for all send packets at the end of ft_ping
  * command.
  */
-void print_end_info(const struct pinginfo *pi)
+void print_end_info(const struct sockinfo *s_info,
+		    const struct packinfo *p_info)
 {
-	int ms_elapsed = calc_ms_elapsed(&pi->time_start, &pi->time_last_send);
+	int ms = calc_ms_elapsed(&p_info->time_first_send,
+				 &p_info->time_last_send);
 
-	printf("\n--- %s ping statistics ---\n", pi->host);
-	printf("%d packets transmitted, %d received, ", pi->nb_send,
-	       pi->nb_recv_ok);
+	printf("\n--- %s ping statistics ---\n", s_info->host);
+	printf("%d packets transmitted, %d received, ", p_info->nb_send,
+	       p_info->nb_recv_ok);
 
-	if (pi->nb_recv_err)
-		printf("+%d errors, ", pi->nb_recv_err);
+	if (p_info->nb_recv_err)
+		printf("+%d errors, ", p_info->nb_recv_err);
 
-	printf("%d%% packet loss, time %dms\n", (int)calc_perc_packet_loss(pi),
-	       ms_elapsed);
+	printf("%d%% packet loss, time %dms\n",
+	       (int)calc_perc_packet_loss(p_info), ms);
 
-	if (pi->nb_recv_ok)
+	if (p_info->nb_recv_ok)
 		printf("rtt min/avg/max/stddev = xxx/xxx/xxx/xxx ms\n");
 }
