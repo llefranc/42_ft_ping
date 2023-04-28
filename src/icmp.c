@@ -6,7 +6,7 @@
 /*   By: llefranc <llefranc@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/04/26 16:30:15 by llefranc          #+#    #+#             */
-/*   Updated: 2023/04/27 20:07:33 by llefranc         ###   ########.fr       */
+/*   Updated: 2023/04/28 14:21:04 by llefranc         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -21,6 +21,9 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 
+/**
+ * Calculate the ICMP checksum.
+ */
 static unsigned short checksum(unsigned short *ptr, int nbytes) {
 	unsigned long sum;
 	unsigned short oddbyte;
@@ -32,7 +35,7 @@ static unsigned short checksum(unsigned short *ptr, int nbytes) {
 	}
 	if (nbytes == 1) {
 		oddbyte = 0;
-		*((unsigned char *) &oddbyte) = *(unsigned char *) ptr;
+		*((unsigned char *)&oddbyte) = *(unsigned char *)ptr;
 		sum += oddbyte;
 	}
 	sum = (sum >> 16) + (sum & 0xffff);
@@ -64,18 +67,18 @@ int send_icmp_ping(int sock_fd, const struct sockinfo *s_info,
 
 	if ((nb_bytes = sendto(sock_fd, buf, sizeof(buf), 0,
 	    (const struct sockaddr *)&s_info->remote_addr,
-	    sizeof(s_info->remote_addr))) == -1) {
+	    sizeof(s_info->remote_addr))) == -1)
 		printf("sendto err: %s\n", strerror(errno));
-	} else {
-		// printf("send %zu bytes\n", nb_bytes);
-	}
-	debug_print_packet("send", buf, nb_bytes);
+
+	print_packet(E_PACK_SEND, buf, nb_bytes);
 
 	p_info->nb_send++;
 	return 0;
 }
 
-// implementer en plus le recv icmp type
+/**
+ * Return id field of ICMP header (which correspond to process PID).
+ */
 static inline pid_t get_packet_pid(uint8_t *buf)
 {
 	struct icmphdr *hdr = (struct icmphdr *)(buf + sizeof(struct iphdr));
@@ -83,6 +86,26 @@ static inline pid_t get_packet_pid(uint8_t *buf)
 	return hdr->un.echo.id;
 }
 
+/**
+ * Return type field of ICMP header.
+ */
+static inline int get_packet_type(uint8_t *buf)
+{
+	struct icmphdr *hdr = (struct icmphdr *)(buf + sizeof(struct iphdr));
+
+	return hdr->type;
+}
+
+/**
+ * Return true if id field is equal to process PID and type field is
+ * different from ICMP echo request type (to avoid to display our own echo
+ * request when pinging localhost).
+ */
+static inline _Bool is_recv_packet(uint8_t *buf)
+{
+	return get_packet_pid(buf) == getpid() &&
+	       get_packet_type(buf) != ICMP_ECHO;
+}
 
 int recv_icmp_ping(int sock_fd, const struct sockinfo *s_info,
 		   struct packinfo *p_info)
@@ -103,14 +126,14 @@ int recv_icmp_ping(int sock_fd, const struct sockinfo *s_info,
 	if (errno != EAGAIN && errno != EWOULDBLOCK && nb_bytes == -1) {
 		printf("recvmsg err: %s\n", strerror(errno));
 		return -1;
-	} else if (nb_bytes == -1 ||
-		   (nb_bytes != -1 && get_packet_pid(buf) != getpid())) {
+	} else if (nb_bytes == -1 || (nb_bytes != -1 && !is_recv_packet(buf))) {
 		return 0;
 	}
-	// if (get)
-	// rajotuer ici une fonction pour check le type de retour
-	if (print_recv_info(s_info, nb_bytes, buf) == -1)
+
+	if (print_recv_info(s_info, buf, nb_bytes) == -1)
 		return -1;
+
+	print_packet(E_PACK_RECV, buf, nb_bytes);
 	p_info->nb_recv_ok++;
 	return 0;
 }

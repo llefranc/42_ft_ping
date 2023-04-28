@@ -6,7 +6,7 @@
 /*   By: llefranc <llefranc@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/04/26 16:21:28 by llefranc          #+#    #+#             */
-/*   Updated: 2023/04/27 20:07:44 by llefranc         ###   ########.fr       */
+/*   Updated: 2023/04/28 14:19:37 by llefranc         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -46,14 +46,24 @@ struct sockinfo {
 	char str_sin_addr[sizeof("xxx.xxx.xxx.xxx")];
 };
 
+/**
+ * Indicate if a packet was sent or received.
+ * @E_PACK_SEND: The packet was sent.
+ * @E_PACK_RECV: The packet was received.
+ */
+enum e_packtype {
+	E_PACK_SEND,
+	E_PACK_RECV,
+};
+
 int ping_check(int ac);
 int ping_init(int *sock_fd, struct sockinfo *s_info, struct packinfo *p_info,
 	      char *host, int ttl);
 
-void debug_print_packet(const char *step, const uint8_t *buf, int size);
+void print_packet(enum e_packtype type, const uint8_t *buf, int packet_len);
 void print_start_info(const struct sockinfo *s_info);
-int print_recv_info(const struct sockinfo *s_info, int packet_len,
-		    const uint8_t *buf);
+int print_recv_info(const struct sockinfo *s_info, const uint8_t *buf,
+		    int packet_len);
 void print_end_info(const struct sockinfo *s_info,
 		    const struct packinfo *p_info);
 

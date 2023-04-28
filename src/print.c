@@ -6,7 +6,7 @@
 /*   By: llefranc <llefranc@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/04/26 16:29:34 by llefranc          #+#    #+#             */
-/*   Updated: 2023/04/27 20:07:33 by llefranc         ###   ########.fr       */
+/*   Updated: 2023/04/28 14:18:05 by llefranc         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -18,14 +18,35 @@
 #include <sys/time.h>
 #include <netinet/ip_icmp.h>
 
-void debug_print_packet(const char *step, const uint8_t *buf, int size)
+/**
+ * Print the content of a sent or received ICMP packet.
+ */
+void print_packet(enum e_packtype type, const uint8_t *buf, int packet_len)
 {
-	printf("------------ %s beg -----------\n", step);
-	for (int i = 0; i < size; ++i) {
+	const struct icmphdr *hdr;
+	char *step_str = type == E_PACK_SEND ? "SENT" : "RECEIVED";
+
+	/* Skipping IP header for received packets */
+	if (type == E_PACK_RECV) {
+		buf += sizeof(struct iphdr);
+		packet_len -= sizeof(struct iphdr);
+	}
+	hdr = (const struct icmphdr *)(buf);
+
+	printf("----------------------------------------------\n");
+	printf("Packet state: %s\n", step_str);
+	printf("ICMP type: %d\n", hdr->type);
+	printf("ICMP code: %d\n", hdr->code);
+	printf("ICMP checksum: %d\n", hdr->checksum);
+	printf("ICMP id: %d\n", hdr->un.echo.id);
+	printf("ICMP sequence: %d\n\n", hdr->un.echo.sequence);
+
+	printf("Packet content (ICMP header + body):\n");
+	for (int i = 0; i < packet_len; ++i) {
 		printf("%02x ", buf[i]);
 	}
-	printf("\n");
-	printf("------------ %s end -----------\n", step);
+	printf("\n----------------------------------------------\n");
+
 }
 
 /**
@@ -59,8 +80,8 @@ void print_start_info(const struct sockinfo *pi)
 /**
  * Print number of bytes and rtt of a received packet.
  */
-int print_recv_info(const struct sockinfo *s_info, int packet_len,
-		      const uint8_t *buf)
+int print_recv_info(const struct sockinfo *s_info, const uint8_t *buf,
+		    int packet_len)
 {
 	struct timeval now;
 	struct iphdr *p_iph;
@@ -74,8 +95,6 @@ int print_recv_info(const struct sockinfo *s_info, int packet_len,
 	p_iph = (struct iphdr *)buf;
 	p_icmph = (struct icmphdr *)(buf + sizeof(*p_iph));
 	p_body = (struct timeval *)(buf + sizeof(*p_iph) + sizeof(*p_icmph));
-
-	debug_print_packet("recv", buf, packet_len);
 
 	printf("%ld bytes from %s: ", packet_len - sizeof(*p_iph),
 	       s_info->str_sin_addr);
