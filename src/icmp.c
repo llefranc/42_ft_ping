@@ -6,7 +6,7 @@
 /*   By: llefranc <llefranc@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/04/26 16:30:15 by llefranc          #+#    #+#             */
-/*   Updated: 2023/04/28 14:21:04 by llefranc         ###   ########.fr       */
+/*   Updated: 2023/04/28 15:03:30 by llefranc         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -43,13 +43,15 @@ static unsigned short checksum(unsigned short *ptr, int nbytes) {
 	return (unsigned short) ~sum;
 }
 
-int send_icmp_ping(int sock_fd, const struct sockinfo *s_info,
-		   struct packinfo *p_info)
+/**
+ * Fill ICMP echo packet fields with process pid, sequence number and add a
+ * timestamp to the packet body.
+ */
+static int fill_icmp_echo_packet(struct packinfo *p_info, uint8_t *buf,
+				 int packet_len)
 {
-	ssize_t nb_bytes;
 	static int seq = 1;
 	struct icmphdr *hdr;
-	uint8_t buf[sizeof(struct icmphdr) + ICMP_BODY_SIZE] = {};
 
 	if (gettimeofday(&p_info->time_last_send, NULL) == -1) {
 		printf("gettimeofday err: %s\n", strerror(errno));
@@ -63,17 +65,38 @@ int send_icmp_ping(int sock_fd, const struct sockinfo *s_info,
 	hdr->un.echo.id = getpid();
 	hdr->un.echo.sequence = 9;
 	hdr->un.echo.sequence = seq++;
-	hdr->checksum = checksum((unsigned short *)buf, sizeof(buf));
+	hdr->checksum = checksum((unsigned short *)buf, packet_len);
 
-	if ((nb_bytes = sendto(sock_fd, buf, sizeof(buf), 0,
-	    (const struct sockaddr *)&s_info->remote_addr,
-	    sizeof(s_info->remote_addr))) == -1)
-		printf("sendto err: %s\n", strerror(errno));
+	return 0;
+}
+
+int send_icmp_ping(int sock_fd, const struct sockinfo *s_info,
+		   struct packinfo *p_info)
+{
+	ssize_t nb_bytes;
+	uint8_t buf[sizeof(struct icmphdr) + ICMP_BODY_SIZE] = {};
+
+	if (fill_icmp_echo_packet(p_info, buf, sizeof(buf)) == -1)
+		return -1;
+
+	nb_bytes = sendto(sock_fd, buf, sizeof(buf), 0,
+			  (const struct sockaddr *)&s_info->remote_addr,
+			  sizeof(s_info->remote_addr));
+	if (nb_bytes == -1)
+		goto err;
 
 	print_packet(E_PACK_SEND, buf, nb_bytes);
-
 	p_info->nb_send++;
 	return 0;
+
+err:
+	if (errno == EACCES) {
+		printf("ft_ping: socket access error. Are you trying "
+		       "to ping broadcast ?\n");
+	} else {
+		printf("sendto err: %s\n", strerror(errno));
+	}
+	return -1;
 }
 
 /**
@@ -129,7 +152,6 @@ int recv_icmp_ping(int sock_fd, const struct sockinfo *s_info,
 	} else if (nb_bytes == -1 || (nb_bytes != -1 && !is_recv_packet(buf))) {
 		return 0;
 	}
-
 	if (print_recv_info(s_info, buf, nb_bytes) == -1)
 		return -1;
 

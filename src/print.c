@@ -6,7 +6,7 @@
 /*   By: llefranc <llefranc@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/04/26 16:29:34 by llefranc          #+#    #+#             */
-/*   Updated: 2023/04/28 14:18:05 by llefranc         ###   ########.fr       */
+/*   Updated: 2023/04/28 14:49:57 by llefranc         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -39,7 +39,8 @@ void print_packet(enum e_packtype type, const uint8_t *buf, int packet_len)
 	printf("ICMP code: %d\n", hdr->code);
 	printf("ICMP checksum: %d\n", hdr->checksum);
 	printf("ICMP id: %d\n", hdr->un.echo.id);
-	printf("ICMP sequence: %d\n\n", hdr->un.echo.sequence);
+	printf("ICMP sequence: %d\n", hdr->un.echo.sequence);
+	printf("ICMP packet size: %d (bytes)\n\n", packet_len);
 
 	printf("Packet content (ICMP header + body):\n");
 	for (int i = 0; i < packet_len; ++i) {
