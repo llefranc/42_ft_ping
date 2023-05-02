@@ -6,7 +6,7 @@
 /*   By: llefranc <llefranc@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/04/26 16:21:28 by llefranc          #+#    #+#             */
-/*   Updated: 2023/04/28 19:53:45 by llefranc         ###   ########.fr       */
+/*   Updated: 2023/05/02 18:00:22 by llefranc         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -60,10 +60,10 @@ int ping_check(int ac);
 int ping_init(int *sock_fd, struct sockinfo *s_info, struct packinfo *p_info,
 	      char *host, int ttl);
 
-void print_packet(enum e_packtype type, uint8_t *buf, int packet_len);
 void print_start_info(const struct sockinfo *s_info);
 int print_recv_info(const struct sockinfo *s_info, const uint8_t *buf,
 		    int packet_len, int ttl);
+void print_packet_content(enum e_packtype type, uint8_t *buf, int packet_len);
 void print_end_info(const struct sockinfo *s_info,
 		    const struct packinfo *p_info);
 

@@ -6,7 +6,7 @@
 /*   By: llefranc <llefranc@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/04/26 16:30:15 by llefranc          #+#    #+#             */
-/*   Updated: 2023/05/02 17:27:36 by llefranc         ###   ########.fr       */
+/*   Updated: 2023/05/02 17:59:56 by llefranc         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -83,7 +83,7 @@ int icmp_send_ping(int sock_fd, const struct sockinfo *s_info,
 	if (nb_bytes == -1)
 		goto err;
 
-	print_packet(E_PACK_SEND, buf, nb_bytes);
+	// print_packet_content(E_PACK_SEND, buf, nb_bytes);
 	p_info->nb_send++;
 	return 0;
 
@@ -163,11 +163,11 @@ int icmp_recv_ping(int sock_fd, const struct sockinfo *s_info,
 
 	if (!is_addressed_to_us((uint8_t *)hdr))
 		return 0;
-	ttl = ((struct iphdr *)(buf))->ttl;
 
+	ttl = ((struct iphdr *)(buf))->ttl;
 	if (print_recv_info(s_info, (uint8_t *)hdr, nb_bytes, ttl) == -1)
 		return -1;
-	print_packet(E_PACK_RECV, (uint8_t *)hdr, nb_bytes);
+	// print_packet_content(E_PACK_RECV, (uint8_t *)hdr, nb_bytes);
 	hdr->type == ICMP_ECHOREPLY ? p_info->nb_ok++ : p_info->nb_err++;
 
 	return 1;

@@ -6,7 +6,7 @@
 /*   By: llefranc <llefranc@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/04/26 16:29:34 by llefranc          #+#    #+#             */
-/*   Updated: 2023/05/02 17:30:21 by llefranc         ###   ########.fr       */
+/*   Updated: 2023/05/02 18:39:24 by llefranc         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -18,54 +18,6 @@
 #include <sys/time.h>
 #include <netinet/ip_icmp.h>
 
-/**
- * Print the content of a sent or received ICMP packet.
- */
-void print_packet(enum e_packtype type, uint8_t *buf, int packet_len)
-{
-	char *step_str = type == E_PACK_SEND ? "SENT" : "RECEIVED";
-	struct icmphdr *hdr = (struct icmphdr *)(buf);
-	struct timeval *tv;
-
-	printf("----------------------------------------------\n");
-	printf("Packet state: %s\n\n", step_str);
-
-	printf("ICMP header\n");
-	printf("  type: %d\n", hdr->type);
-	printf("  code: %d\n", hdr->code);
-	printf("  checksum: %d\n", hdr->checksum);
-
-	if (hdr->type == ICMP_ECHO || hdr->type == ICMP_ECHOREPLY) {
-		tv = (struct timeval *)(buf + sizeof(*hdr));
-		printf("  id: %d\n", hdr->un.echo.id);
-		printf("  sequence: %d\n", hdr->un.echo.sequence);
-		printf("ICMP body:\n");
-		printf("  timestamp: %lds, %ldms\n\n", tv->tv_sec, tv->tv_usec);
-	}
-	printf("Packet content (ICMP header + body, %d bytes):\n\n", packet_len);
-	for (int i = 0; i < packet_len; ++i) {
-		printf("%02x ", buf[i]);
-	}
-	printf("\n----------------------------------------------\n");
-}
-
-/**
- * Calculate the percentage of lost packets.
- */
-static inline float calc_perc_packet_loss(const struct packinfo *p)
-{
-	return (1.0 - (float)(p->nb_ok) / (float)p->nb_send) * 100.0;
-}
-
-/**
- * Calculate the number of milliseconds elapsed between two times.
- */
-static inline int calc_ms_elapsed(const struct timeval *start,
-				  const struct timeval *end)
-{
-	return (end->tv_sec - start->tv_sec) * 1000
-	       + (end->tv_usec - start->tv_usec) / 1000;
-}
 
 /**
  * Print the information at start of ft_ping.
@@ -163,6 +115,30 @@ static void print_icmp_err(int type, int code) {
 }
 
 /**
+ * Calculate and print the RTT of a received ICMP echo reply packet.
+ * If RTT > 1ms, format is x.xxms. If RTT < 1ms, format is 0.xxxms.
+ */
+static void print_icmp_rtt(const struct timeval *t_send,
+			   const struct timeval *t_recv)
+{
+	long msec;
+	long usec;
+	struct timeval rtt = {};
+
+	timersub(t_recv, t_send, &rtt);
+	msec = rtt.tv_sec * 1000 + rtt.tv_usec / 1000;
+	usec = rtt.tv_usec % 1000;
+
+	if (msec > 0) {
+		usec = (usec % 1000) / 10;
+		printf("time=%ld.%02ld ms\n", msec, usec);
+	} else {
+		usec %= 1000;
+		printf("time=%ld.%03ld ms\n", msec, usec);
+	}
+}
+
+/**
  * Print information of a received ICMP packet :
  *    - If it's an echo reply, print number of bytes received, remote host
  *      address, sequence number, ttl value and rtt.
@@ -185,7 +161,7 @@ int print_recv_info(const struct sockinfo *s_info, const uint8_t *buf,
 	if (type == ICMP_ECHOREPLY) {
 		printf("%d bytes from %s: ", packet_len, s_info->str_sin_addr);
 		printf("icmp_seq=%d ttl=%d ", p_hdr->un.echo.sequence, ttl);
-		printf("time=%ld us\n", now.tv_usec - p_body->tv_usec);
+		print_icmp_rtt(p_body, &now);
 	} else {
 		/* If error, jump to ICMP sent packet header stored in body */
 		p_hdr = (struct icmphdr *)(buf + sizeof(*p_hdr)
@@ -195,6 +171,57 @@ int print_recv_info(const struct sockinfo *s_info, const uint8_t *buf,
 		print_icmp_err(type, code);
 	}
 	return 0;
+}
+
+/**
+ * Print the content of a sent or received ICMP packet.
+ */
+void print_packet_content(enum e_packtype type, uint8_t *buf, int packet_len)
+{
+	char *step_str = type == E_PACK_SEND ? "SENT" : "RECEIVED";
+	struct icmphdr *hdr = (struct icmphdr *)(buf);
+	struct timeval *tv;
+
+	printf("----------------------------------------------\n");
+	printf("Packet state: %s\n\n", step_str);
+
+	printf("ICMP header\n");
+	printf("  type: %d\n", hdr->type);
+	printf("  code: %d\n", hdr->code);
+	printf("  checksum: %d\n", hdr->checksum);
+
+	if (hdr->type == ICMP_ECHO || hdr->type == ICMP_ECHOREPLY) {
+		tv = (struct timeval *)(buf + sizeof(*hdr));
+		printf("  id: %d\n", hdr->un.echo.id);
+		printf("  sequence: %d\n", hdr->un.echo.sequence);
+		printf("ICMP body:\n");
+		printf("  timestamp: %lds, %ldms\n\n", tv->tv_sec, tv->tv_usec);
+	}
+	printf("Packet content (ICMP header + body, %d bytes):\n\n", packet_len);
+	for (int i = 0; i < packet_len; ++i) {
+		printf("%02x ", buf[i]);
+	}
+	printf("\n----------------------------------------------\n");
+}
+
+/**
+ * Calculate the percentage of lost packets.
+ */
+static inline float calc_perc_packet_loss(const struct packinfo *p)
+{
+	return (1.0 - (float)(p->nb_ok) / (float)p->nb_send) * 100.0;
+}
+
+/**
+ * Calculate the number of milliseconds elapsed between two timeval struct.
+ */
+static inline int calc_ms_elapsed(const struct timeval *start,
+				  const struct timeval *end)
+{
+	struct timeval diff = {};
+
+	timersub(end, start, &diff);
+	return diff.tv_sec * 1000 + diff.tv_usec / 1000;
 }
 
 /**
