@@ -6,7 +6,7 @@
 /*   By: llefranc <llefranc@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/04/26 16:30:15 by llefranc          #+#    #+#             */
-/*   Updated: 2023/04/28 15:03:30 by llefranc         ###   ########.fr       */
+/*   Updated: 2023/05/02 17:27:36 by llefranc         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -44,33 +44,31 @@ static unsigned short checksum(unsigned short *ptr, int nbytes) {
 }
 
 /**
- * Fill ICMP echo packet fields with process pid, sequence number and add a
- * timestamp to the packet body.
+ * Fill ICMP echo request packet header, and add a timestamp to the packet body.
  */
 static int fill_icmp_echo_packet(struct packinfo *p_info, uint8_t *buf,
 				 int packet_len)
 {
 	static int seq = 1;
-	struct icmphdr *hdr;
+	struct icmphdr *hdr = (struct icmphdr *)buf;
+	struct timeval *timestamp = (struct timeval *)(buf + sizeof(*hdr));
 
 	if (gettimeofday(&p_info->time_last_send, NULL) == -1) {
 		printf("gettimeofday err: %s\n", strerror(errno));
 		return -1;
 	}
-	memcpy(buf + sizeof(*hdr), &p_info->time_last_send,
+	memcpy(timestamp, &p_info->time_last_send,
 	       sizeof(p_info->time_last_send));
 
-	hdr = (struct icmphdr *)buf;
 	hdr->type = ICMP_ECHO;
 	hdr->un.echo.id = getpid();
-	hdr->un.echo.sequence = 9;
 	hdr->un.echo.sequence = seq++;
 	hdr->checksum = checksum((unsigned short *)buf, packet_len);
 
 	return 0;
 }
 
-int send_icmp_ping(int sock_fd, const struct sockinfo *s_info,
+int icmp_send_ping(int sock_fd, const struct sockinfo *s_info,
 		   struct packinfo *p_info)
 {
 	ssize_t nb_bytes;
@@ -100,44 +98,52 @@ err:
 }
 
 /**
- * Return id field of ICMP header (which correspond to process PID).
+ * Return true if the ICMP packet received is addressed to this process by
+ * checking the ID field, which contain process PID. Return false if the packet
+ * is an ICMP ECHO request from this process (case we're pinging localhost).
  */
-static inline pid_t get_packet_pid(uint8_t *buf)
+_Bool is_addressed_to_us(uint8_t *buf)
 {
-	struct icmphdr *hdr = (struct icmphdr *)(buf + sizeof(struct iphdr));
+	struct icmphdr *hdr_sent;
+	struct icmphdr *hdr_rep = (struct icmphdr *)buf;
 
-	return hdr->un.echo.id;
+	/* To discard our own ICMP echo request when pinging localhost */
+	if (hdr_rep->type == ICMP_ECHO)
+		return 0;
+
+	/* If error, jumping to ICMP sent packet header stored in body */
+	if (hdr_rep->type != ICMP_ECHOREPLY)
+		buf += sizeof(struct icmphdr) + sizeof(struct iphdr);
+	hdr_sent = (struct icmphdr *)buf;
+
+	return hdr_sent->un.echo.id == getpid();
 }
 
-/**
- * Return type field of ICMP header.
- */
-static inline int get_packet_type(uint8_t *buf)
-{
-	struct icmphdr *hdr = (struct icmphdr *)(buf + sizeof(struct iphdr));
-
-	return hdr->type;
-}
-
-/**
- * Return true if id field is equal to process PID and type field is
- * different from ICMP echo request type (to avoid to display our own echo
- * request when pinging localhost).
- */
-static inline _Bool is_recv_packet(uint8_t *buf)
-{
-	return get_packet_pid(buf) == getpid() &&
-	       get_packet_type(buf) != ICMP_ECHO;
-}
-
-int recv_icmp_ping(int sock_fd, const struct sockinfo *s_info,
+/*
+* Size of (IP header + ICMP header) * 2 because in case of error,
+* ip header + icmp echo request header of sent packet will also be
+* in body (cf RFC792).
+*
+* 0                   1                   2                   3
+* 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+* +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+* |     Type      |     Code      |          Checksum             |
+* +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+* |                             unused                            |
+* +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+* |      Internet Header + 64 bits of Original Data Datagram      |
+* +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+*/
+int icmp_recv_ping(int sock_fd, const struct sockinfo *s_info,
 		   struct packinfo *p_info)
 {
 	struct msghdr msg = {};
 	struct iovec iov[1] = {};
+	struct icmphdr *hdr;
+	uint8_t buf[(sizeof(struct iphdr) + sizeof(struct icmphdr)) * 2
+		    + ICMP_BODY_SIZE + 1] = {};
 	ssize_t nb_bytes;
-	uint8_t buf[sizeof(struct iphdr) + sizeof(struct icmphdr)
-		    + ICMP_BODY_SIZE] = {};
+	int ttl;
 
 	msg.msg_iov = iov;
 	msg.msg_iovlen = 1;
@@ -145,17 +151,24 @@ int recv_icmp_ping(int sock_fd, const struct sockinfo *s_info,
 	iov[0].iov_len = sizeof(buf);
 
 	nb_bytes = recvmsg(sock_fd, &msg, MSG_DONTWAIT);
-
 	if (errno != EAGAIN && errno != EWOULDBLOCK && nb_bytes == -1) {
 		printf("recvmsg err: %s\n", strerror(errno));
 		return -1;
-	} else if (nb_bytes == -1 || (nb_bytes != -1 && !is_recv_packet(buf))) {
+	} else if (nb_bytes == -1) {
 		return 0;
 	}
-	if (print_recv_info(s_info, buf, nb_bytes) == -1)
-		return -1;
+	/* Skipping IP header */
+	hdr = (struct icmphdr *)(buf + sizeof(struct iphdr));
+	nb_bytes -= sizeof(struct iphdr);
 
-	print_packet(E_PACK_RECV, buf, nb_bytes);
-	p_info->nb_recv_ok++;
-	return 0;
+	if (!is_addressed_to_us((uint8_t *)hdr))
+		return 0;
+	ttl = ((struct iphdr *)(buf))->ttl;
+
+	if (print_recv_info(s_info, (uint8_t *)hdr, nb_bytes, ttl) == -1)
+		return -1;
+	print_packet(E_PACK_RECV, (uint8_t *)hdr, nb_bytes);
+	hdr->type == ICMP_ECHOREPLY ? p_info->nb_ok++ : p_info->nb_err++;
+
+	return 1;
 }
