@@ -6,7 +6,7 @@
 /*   By: llefranc <llefranc@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/04/24 12:54:16 by lucaslefran       #+#    #+#             */
-/*   Updated: 2023/05/02 17:11:15 by llefranc         ###   ########.fr       */
+/*   Updated: 2023/05/02 19:02:41 by llefranc         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -37,7 +37,7 @@ int main(int ac, char **av)
 	if (ping_check(ac) == -1)
 		return 1;
 	host = av[ac - 1];
-	if (ping_init(&sock_fd, &s_info, &p_info, host, IP_TTL_VALUE) == -1)
+	if (ping_init_sock(&sock_fd, &s_info, host, IP_TTL_VALUE) == -1)
 		goto fatal;
 
 	signal(SIGINT, &handler);

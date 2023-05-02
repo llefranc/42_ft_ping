@@ -6,7 +6,7 @@
 /*   By: llefranc <llefranc@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/04/26 16:29:06 by llefranc          #+#    #+#             */
-/*   Updated: 2023/04/27 19:28:24 by llefranc         ###   ########.fr       */
+/*   Updated: 2023/05/02 19:02:09 by llefranc         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -91,27 +91,20 @@ static int create_socket(uint8_t ttl)
 }
 
 /**
- * Does several initialization:
- *	- Initialize sockinfo/packinfo structures.
+ * Do the socket initializations:
  * 	- Find internet remote socket address based on host (ex: google.com).
  *	- Create raw socket with ICMP protocol.
  *	- Set the ttl for ip layer.
- * @sock_fd: Will be initialized with raw socket file descriptor.
- * @s_info: Will be init with socket remote address info.
- * @p_info: Init first_time_send member to now.
+ * @sock_fd: Will be init with raw socket file descriptor.
+ * @s_info: Will be init with socket remote address infos.
  * @host: The host to ping.
  * @ttl: Ttl value for ip layer.
  *
  * Return: 0 on success, -1 if the initialization failed. On failure, the file
  *         descriptor is automatically closed.
  */
-int ping_init(int *sock_fd, struct sockinfo *s_info, struct packinfo *p_info,
-	      char *host, int ttl)
+int ping_init_sock(int *sock_fd, struct sockinfo *s_info, char *host, int ttl)
 {
-	if (gettimeofday(&p_info->time_first_send, NULL) == -1) {
-		printf("gettimeofday: %s\n", strerror(errno));
-		return -1;
-	}
 	s_info->host = host;
 	if (init_sock_addr(s_info) == -1)
 		return -1;

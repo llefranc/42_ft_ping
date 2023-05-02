@@ -6,7 +6,7 @@
 /*   By: llefranc <llefranc@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/04/26 16:30:15 by llefranc          #+#    #+#             */
-/*   Updated: 2023/05/02 17:59:56 by llefranc         ###   ########.fr       */
+/*   Updated: 2023/05/02 18:59:01 by llefranc         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -57,6 +57,9 @@ static int fill_icmp_echo_packet(struct packinfo *p_info, uint8_t *buf,
 		printf("gettimeofday err: %s\n", strerror(errno));
 		return -1;
 	}
+	if (!p_info->nb_send)
+		p_info->time_first_send = p_info->time_last_send;
+
 	memcpy(timestamp, &p_info->time_last_send,
 	       sizeof(p_info->time_last_send));
 
