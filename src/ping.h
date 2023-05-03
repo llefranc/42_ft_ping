@@ -6,7 +6,7 @@
 /*   By: llefranc <llefranc@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/04/26 16:21:28 by llefranc          #+#    #+#             */
-/*   Updated: 2023/05/03 17:17:37 by llefranc         ###   ########.fr       */
+/*   Updated: 2023/05/03 20:54:39 by llefranc         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -16,10 +16,13 @@
 #include <netinet/ip_icmp.h>
 
 #define IP_TTL_VALUE 64
+
+#define IP_HDR_SIZE (sizeof(struct iphdr))
+#define ICMP_HDR_SIZE (sizeof(struct icmphdr))
 #define ICMP_BODY_SIZE 56
 
 /**
- * The different available options of ft_ping.
+ * The different available options for ft_ping.
  * @help: Help option (display help).
  * @quiet: Quiet option (no output when receiving a packet).
  * @verb: Verbose option (display content of each received packet).
@@ -68,21 +71,41 @@ enum e_packtype {
 	E_PACK_RECV,
 };
 
+/**
+ * Take a pointer to ip header position in a packet and return a new pointer
+ * set to after the header.
+ */
+static inline void * skip_iphdr(void *buf)
+{
+	return (void *)((uint8_t *)buf + IP_HDR_SIZE);
+}
+
+/**
+ * Take a pointer to icmp header position in a packet and return a new pointer
+ * set to after the header.
+ */
+static inline void * skip_icmphdr(void *buf)
+{
+	return (void *)((uint8_t *)buf + ICMP_HDR_SIZE);
+}
+
+/* check.c */
 int check_rights();
 int check_args(int ac, char **av, char **host, struct options *opts);
 
+/* init.c */
 int init_sock(int *sock_fd, struct sockinfo *si, char *host, int ttl);
 
-void print_help();
-void print_start_info(const struct sockinfo *si);
-int print_recv_info(const struct sockinfo *si, const uint8_t *buf,
-		    int packet_len, int ttl);
-void print_packet_content(enum e_packtype type, uint8_t *buf, int packet_len);
-void print_end_info(const struct sockinfo *si, const struct packinfo *pi);
-
+/* icmp.c*/
 int icmp_send_ping(int sock_fd, const struct sockinfo *si, struct packinfo *pi,
 		   const struct options *opts);
-int icmp_recv_ping(int sock_fd, const struct sockinfo *si, struct packinfo *pi,
-		   const struct options *opts);
+int icmp_recv_ping(int sock_fd, struct packinfo *pi, const struct options *opts);
+
+/* print.c */
+void print_help();
+void print_start_info(const struct sockinfo *si);
+int print_recv_info(void *buf, ssize_t nb_bytes);
+void print_icmp_packet(enum e_packtype type, uint8_t *buf, ssize_t nb_bytes);
+void print_end_info(const struct sockinfo *si, const struct packinfo *pi);
 
 #endif /* PING_H */

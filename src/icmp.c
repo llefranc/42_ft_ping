@@ -6,7 +6,7 @@
 /*   By: llefranc <llefranc@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/04/26 16:30:15 by llefranc          #+#    #+#             */
-/*   Updated: 2023/05/03 17:18:26 by llefranc         ###   ########.fr       */
+/*   Updated: 2023/05/03 20:54:39 by llefranc         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -20,6 +20,13 @@
 #include <sys/time.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+
+/*
+ * Size of (IP header + ICMP header) * 2 because in case of an ICMP error
+ * packet, its body will also contain ip header + icmp echo request header
+ * of sent packet.
+ */
+#define RECV_PACK_SIZE ((IP_HDR_SIZE + ICMP_HDR_SIZE) * 2 + ICMP_BODY_SIZE + 1)
 
 /**
  * Calculate the ICMP checksum.
@@ -51,7 +58,7 @@ static int fill_icmp_echo_packet(struct packinfo *pi, uint8_t *buf,
 {
 	static int seq = 1;
 	struct icmphdr *hdr = (struct icmphdr *)buf;
-	struct timeval *timestamp = (struct timeval *)(buf + sizeof(*hdr));
+	struct timeval *timestamp = skip_icmphdr(buf);
 
 	if (gettimeofday(&pi->time_last_send, NULL) == -1) {
 		printf("gettimeofday err: %s\n", strerror(errno));
@@ -69,6 +76,15 @@ static int fill_icmp_echo_packet(struct packinfo *pi, uint8_t *buf,
 	return 0;
 }
 
+/**
+ * Send an ICMP echo request packet.
+ * @sock_fd: RAW socket file descriptor.
+ * @si: Contain the information relative to the remote socket to ping.
+ * @pi: Contain the information relative to the ICMP packets.
+ * @opts: The different available options for ft_ping.
+ *
+ * Return: 0 if packet was successfully sent, -1 in case of error.
+ */
 int icmp_send_ping(int sock_fd, const struct sockinfo *si, struct packinfo *pi,
 		   const struct options *opts)
 {
@@ -85,7 +101,7 @@ int icmp_send_ping(int sock_fd, const struct sockinfo *si, struct packinfo *pi,
 		goto err;
 
 	if (!opts->quiet && opts->verb)
-		print_packet_content(E_PACK_SEND, buf, nb_bytes);
+		print_icmp_packet(E_PACK_SEND, buf, nb_bytes);
 	pi->nb_send++;
 	return 0;
 
@@ -115,42 +131,31 @@ static _Bool is_addressed_to_us(uint8_t *buf)
 
 	/* If error, jumping to ICMP sent packet header stored in body */
 	if (hdr_rep->type != ICMP_ECHOREPLY)
-		buf += sizeof(struct icmphdr) + sizeof(struct iphdr);
+		buf += ICMP_HDR_SIZE + IP_HDR_SIZE;
 	hdr_sent = (struct icmphdr *)buf;
 
 	return hdr_sent->un.echo.id == getpid();
 }
 
-/*
-* Size of (IP header + ICMP header) * 2 because in case of error,
-* ip header + icmp echo request header of sent packet will also be
-* in body (cf RFC792).
-*
-* 0                   1                   2                   3
-* 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-* +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-* |     Type      |     Code      |          Checksum             |
-* +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-* |                             unused                            |
-* +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-* |      Internet Header + 64 bits of Original Data Datagram      |
-* +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-*/
-int icmp_recv_ping(int sock_fd, const struct sockinfo *si, struct packinfo *pi,
-		   const struct options *opts)
+/**
+ * Read from the RAW non-blocking socket. If there is some data available, print
+ * a line describing the received packet.
+ * @sock_fd: RAW socket file descriptor.
+ * @pi: Contain the information relative to the ICMP packets.
+ * @opts: The different available options for ft_ping.
+ *
+ * Return: 1 if a packet was received, 0 if there was no data to read, -1 in
+ *         case of error.
+ */
+int icmp_recv_ping(int sock_fd, struct packinfo *pi, const struct options *opts)
 {
-	struct msghdr msg = {};
-	struct iovec iov[1] = {};
-	struct icmphdr *hdr;
-	uint8_t buf[(sizeof(struct iphdr) + sizeof(struct icmphdr)) * 2
-		    + ICMP_BODY_SIZE + 1] = {};
+	uint8_t buf[RECV_PACK_SIZE] = {};
 	ssize_t nb_bytes;
-	int ttl;
-
-	msg.msg_iov = iov;
-	msg.msg_iovlen = 1;
-	iov[0].iov_base = buf;
-	iov[0].iov_len = sizeof(buf);
+	struct icmphdr *icmph;
+	struct iovec iov[1] = {
+		[0] = { .iov_base = buf, .iov_len = sizeof(buf)}
+	};
+	struct msghdr msg = { .msg_iov = iov, .msg_iovlen = 1 };
 
 	nb_bytes = recvmsg(sock_fd, &msg, MSG_DONTWAIT);
 	if (errno != EAGAIN && errno != EWOULDBLOCK && nb_bytes == -1) {
@@ -159,20 +164,18 @@ int icmp_recv_ping(int sock_fd, const struct sockinfo *si, struct packinfo *pi,
 	} else if (nb_bytes == -1) {
 		return 0;
 	}
-	/* Skipping IP header */
-	hdr = (struct icmphdr *)(buf + sizeof(struct iphdr));
-	nb_bytes -= sizeof(struct iphdr);
-
-	if (!is_addressed_to_us((uint8_t *)hdr))
+	icmph = skip_iphdr(buf);
+	if (!is_addressed_to_us((uint8_t *)icmph))
 		return 0;
 
-	hdr->type == ICMP_ECHOREPLY ? pi->nb_ok++ : pi->nb_err++;
-	if (opts->quiet)
-		return 1;
-
-	ttl = ((struct iphdr *)(buf))->ttl;
-	print_recv_info(si, (uint8_t *)hdr, nb_bytes, ttl);
-	if (opts->verb)
-		print_packet_content(E_PACK_RECV, (uint8_t *)hdr, nb_bytes);
+	icmph->type == ICMP_ECHOREPLY ? pi->nb_ok++ : pi->nb_err++;
+	if (!opts->quiet) {
+		if (print_recv_info(buf, nb_bytes) == -1)
+			return -1;
+		if (opts->verb) {
+			print_icmp_packet(E_PACK_RECV, (uint8_t *)icmph,
+			                  nb_bytes - IP_HDR_SIZE);
+		}
+	}
 	return 1;
 }

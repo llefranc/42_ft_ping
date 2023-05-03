@@ -6,7 +6,7 @@
 /*   By: llefranc <llefranc@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/04/24 12:54:16 by lucaslefran       #+#    #+#             */
-/*   Updated: 2023/05/03 17:07:11 by llefranc         ###   ########.fr       */
+/*   Updated: 2023/05/03 20:04:59 by llefranc         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -51,7 +51,7 @@ int main(int ac, char **av)
 				goto fatal_close_sock;
 			alarm(1);
 		}
-		if (icmp_recv_ping(sock_fd, &si, &pi, &opts) == -1)
+		if (icmp_recv_ping(sock_fd, &pi, &opts) == -1)
 			goto fatal_close_sock;
 	}
 	print_end_info(&si, &pi);

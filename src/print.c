@@ -6,7 +6,7 @@
 /*   By: llefranc <llefranc@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/04/26 16:29:34 by llefranc          #+#    #+#             */
-/*   Updated: 2023/05/03 17:16:30 by llefranc         ###   ########.fr       */
+/*   Updated: 2023/05/03 20:45:31 by llefranc         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -17,6 +17,8 @@
 #include <string.h>
 #include <sys/time.h>
 #include <netinet/ip_icmp.h>
+#include <arpa/inet.h>
+
 
 /**
  * Print ft_ping help.
@@ -39,7 +41,7 @@ void print_start_info(const struct sockinfo *si)
 {
 	printf("PING %s (%s) %d(%zu) bytes of data.\n", si->host,
 	       si->str_sin_addr, ICMP_BODY_SIZE,
-	       ICMP_BODY_SIZE + sizeof(struct iphdr) + sizeof(struct icmphdr));
+	       IP_HDR_SIZE + ICMP_HDR_SIZE + ICMP_BODY_SIZE);
 }
 
 /**
@@ -131,17 +133,20 @@ static void print_icmp_err(int type, int code) {
  * Calculate and print the RTT of a received ICMP echo reply packet.
  * If RTT > 1ms, format is x.xxms. If RTT < 1ms, format is 0.xxxms.
  */
-static void print_icmp_rtt(const struct timeval *t_send,
-			   const struct timeval *t_recv)
+static int print_icmp_rtt(const struct timeval *t_send)
 {
 	long msec;
 	long usec;
+	struct timeval t_recv;
 	struct timeval rtt = {};
 
-	timersub(t_recv, t_send, &rtt);
+	if (gettimeofday(&t_recv, NULL) == -1) {
+		printf("gettimeofday err: %s\n", strerror(errno));
+		return -1;
+	}
+	timersub(&t_recv, t_send, &rtt);
 	msec = rtt.tv_sec * 1000 + rtt.tv_usec / 1000;
 	usec = rtt.tv_usec % 1000;
-
 	if (msec > 0) {
 		usec = (usec % 1000) / 10;
 		printf("time=%ld.%02ld ms\n", msec, usec);
@@ -149,51 +154,56 @@ static void print_icmp_rtt(const struct timeval *t_send,
 		usec %= 1000;
 		printf("time=%ld.%03ld ms\n", msec, usec);
 	}
+	return 0;
 }
 
 /**
- * Print information of a received ICMP packet :
- *    - If it's an echo reply, print number of bytes received, remote host
+ * Print information of a received packet following a ICMP echo request:
+ *    - If it's an echo reply, print number of bytes received, source IP
  *      address, sequence number, ttl value and rtt.
- *    - If it's an error packet, print remote host address, sequence number
+ *    - If it's an error packet, print source IP address, sequence number
  *      and the appropriate error message.
+ * @buf: Buffer fill with the received packet (IP header + ICMP).
+ * @nb_bytes: Number of bytes received.
+ *
+ * Return: 0 on success, -1 on error.
  */
-int print_recv_info(const struct sockinfo *si, const uint8_t *buf,
-		    int packet_len, int ttl)
+int print_recv_info(void *buf, ssize_t nb_bytes)
 {
-	struct timeval now;
-	struct icmphdr *p_hdr = (struct icmphdr *)(buf);
-	struct timeval *p_body = (struct timeval *)(buf + + sizeof(*p_hdr));
-	int type = p_hdr->type;
-	int code = p_hdr->code;
+	char addr[INET_ADDRSTRLEN] = {};
+	struct iphdr *iph = buf;
+	struct icmphdr *icmph = skip_iphdr(iph);
+	struct timeval *icmpb = skip_icmphdr(icmph);
+	struct icmphdr *err_icmph;
 
-	if (gettimeofday(&now, NULL) == -1) {
-		printf("gettimeofday err: %s\n", strerror(errno));
-		return -1;
-	}
-	if (type == ICMP_ECHOREPLY) {
-		printf("%d bytes from %s: ", packet_len, si->str_sin_addr);
-		printf("icmp_seq=%d ttl=%d ", p_hdr->un.echo.sequence, ttl);
-		print_icmp_rtt(p_body, &now);
+	inet_ntop(AF_INET, &iph->saddr, addr, INET_ADDRSTRLEN);
+	if (icmph->type == ICMP_ECHOREPLY) {
+		printf("%ld bytes from %s: ", nb_bytes - IP_HDR_SIZE, addr);
+		printf("icmp_seq=%d ttl=%d ", icmph->un.echo.sequence, iph->ttl);
+		if (print_icmp_rtt(icmpb) == -1)
+			return -1;
 	} else {
 		/* If error, jump to ICMP sent packet header stored in body */
-		p_hdr = (struct icmphdr *)(buf + sizeof(*p_hdr)
-		        + sizeof(struct iphdr));
-		printf("From %s: ", si->str_sin_addr);
-		printf("icmp_seq=%d ", p_hdr->un.echo.sequence);
-		print_icmp_err(type, code);
+		err_icmph = (struct icmphdr *)((uint8_t *)icmph + IP_HDR_SIZE
+		            + ICMP_HDR_SIZE);
+		printf("From %s: ", addr);
+		printf("icmp_seq=%d ", err_icmph->un.echo.sequence);
+		print_icmp_err(icmph->type, icmph->code);
 	}
 	return 0;
 }
 
 /**
  * Print the content of a sent or received ICMP packet.
+ * @type: Indicate the type of packet (either E_PACK_SEND or E_PACK_RECV).
+ * @buf: Buffer fill with the ICMP packet (header + body).
+ * @nb_bytes: Length of the packet.
  */
-void print_packet_content(enum e_packtype type, uint8_t *buf, int packet_len)
+void print_icmp_packet(enum e_packtype type, uint8_t *buf, ssize_t nb_bytes)
 {
-	char *step_str = type == E_PACK_SEND ? "SENT" : "RECEIVED";
-	struct icmphdr *hdr = (struct icmphdr *)(buf);
+	struct icmphdr *hdr = (struct icmphdr *)buf;
 	struct timeval *tv;
+	char *step_str = type == E_PACK_SEND ? "SENT" : "RECEIVED";
 
 	printf("----------------------------------------------\n");
 	printf("Packet state: %s\n\n", step_str);
@@ -204,14 +214,14 @@ void print_packet_content(enum e_packtype type, uint8_t *buf, int packet_len)
 	printf("  checksum: %d\n", hdr->checksum);
 
 	if (hdr->type == ICMP_ECHO || hdr->type == ICMP_ECHOREPLY) {
-		tv = (struct timeval *)(buf + sizeof(*hdr));
+		tv = skip_icmphdr(buf);
 		printf("  id: %d\n", hdr->un.echo.id);
 		printf("  sequence: %d\n", hdr->un.echo.sequence);
 		printf("ICMP body:\n");
 		printf("  timestamp: %lds, %ldms\n\n", tv->tv_sec, tv->tv_usec);
 	}
-	printf("Packet content (ICMP header + body, %d bytes):\n\n", packet_len);
-	for (int i = 0; i < packet_len; ++i) {
+	printf("Packet content (ICMP header + body, %ld bytes):\n\n", nb_bytes);
+	for (int i = 0; i < nb_bytes; ++i) {
 		printf("%02x ", buf[i]);
 	}
 	printf("\n----------------------------------------------\n");
@@ -243,8 +253,7 @@ static inline int calc_ms_elapsed(const struct timeval *start,
  */
 void print_end_info(const struct sockinfo *si, const struct packinfo *pi)
 {
-	int ms = calc_ms_elapsed(&pi->time_first_send,
-				 &pi->time_last_send);
+	int ms = calc_ms_elapsed(&pi->time_first_send, &pi->time_last_send);
 
 	printf("\n--- %s ping statistics ---\n", si->host);
 	printf("%d packets transmitted, %d received, ", pi->nb_send, pi->nb_ok);
@@ -253,6 +262,4 @@ void print_end_info(const struct sockinfo *si, const struct packinfo *pi)
 		printf("+%d errors, ", pi->nb_err);
 
 	printf("%d%% packet loss, time %dms\n", (int)calc_packet_loss(pi), ms);
-	if (pi->nb_ok)
-		printf("rtt min/avg/max/stddev = xxx/xxx/xxx/xxx ms\n");
 }
