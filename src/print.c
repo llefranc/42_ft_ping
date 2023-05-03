@@ -6,7 +6,7 @@
 /*   By: llefranc <llefranc@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/04/26 16:29:34 by llefranc          #+#    #+#             */
-/*   Updated: 2023/05/02 18:39:24 by llefranc         ###   ########.fr       */
+/*   Updated: 2023/05/03 17:16:30 by llefranc         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -18,14 +18,27 @@
 #include <sys/time.h>
 #include <netinet/ip_icmp.h>
 
+/**
+ * Print ft_ping help.
+ */
+void print_help()
+{
+	printf("Usage\n"
+	       "  ping [options] <destination>\n\n"
+	       "Options:\n"
+	       "  <destination>      Dns name or ip address\n"
+	       "  -h                 Show help\n"
+	       "  -q                 Quiet output\n"
+	       "  -v                 Verbose output\n");
+}
 
 /**
  * Print the information at start of ft_ping.
  */
-void print_start_info(const struct sockinfo *pi)
+void print_start_info(const struct sockinfo *si)
 {
-	printf("PING %s (%s) %d(%zu) bytes of data.\n", pi->host,
-	       pi->str_sin_addr, ICMP_BODY_SIZE,
+	printf("PING %s (%s) %d(%zu) bytes of data.\n", si->host,
+	       si->str_sin_addr, ICMP_BODY_SIZE,
 	       ICMP_BODY_SIZE + sizeof(struct iphdr) + sizeof(struct icmphdr));
 }
 
@@ -145,7 +158,7 @@ static void print_icmp_rtt(const struct timeval *t_send,
  *    - If it's an error packet, print remote host address, sequence number
  *      and the appropriate error message.
  */
-int print_recv_info(const struct sockinfo *s_info, const uint8_t *buf,
+int print_recv_info(const struct sockinfo *si, const uint8_t *buf,
 		    int packet_len, int ttl)
 {
 	struct timeval now;
@@ -159,14 +172,14 @@ int print_recv_info(const struct sockinfo *s_info, const uint8_t *buf,
 		return -1;
 	}
 	if (type == ICMP_ECHOREPLY) {
-		printf("%d bytes from %s: ", packet_len, s_info->str_sin_addr);
+		printf("%d bytes from %s: ", packet_len, si->str_sin_addr);
 		printf("icmp_seq=%d ttl=%d ", p_hdr->un.echo.sequence, ttl);
 		print_icmp_rtt(p_body, &now);
 	} else {
 		/* If error, jump to ICMP sent packet header stored in body */
 		p_hdr = (struct icmphdr *)(buf + sizeof(*p_hdr)
 		        + sizeof(struct iphdr));
-		printf("From %s: ", s_info->str_sin_addr);
+		printf("From %s: ", si->str_sin_addr);
 		printf("icmp_seq=%d ", p_hdr->un.echo.sequence);
 		print_icmp_err(type, code);
 	}
@@ -207,9 +220,9 @@ void print_packet_content(enum e_packtype type, uint8_t *buf, int packet_len)
 /**
  * Calculate the percentage of lost packets.
  */
-static inline float calc_perc_packet_loss(const struct packinfo *p)
+static inline float calc_packet_loss(const struct packinfo *pi)
 {
-	return (1.0 - (float)(p->nb_ok) / (float)p->nb_send) * 100.0;
+	return (1.0 - (float)(pi->nb_ok) / (float)pi->nb_send) * 100.0;
 }
 
 /**
@@ -228,22 +241,18 @@ static inline int calc_ms_elapsed(const struct timeval *start,
  * Print the different statistics for all send packets at the end of ft_ping
  * command.
  */
-void print_end_info(const struct sockinfo *s_info,
-		    const struct packinfo *p_info)
+void print_end_info(const struct sockinfo *si, const struct packinfo *pi)
 {
-	int ms = calc_ms_elapsed(&p_info->time_first_send,
-				 &p_info->time_last_send);
+	int ms = calc_ms_elapsed(&pi->time_first_send,
+				 &pi->time_last_send);
 
-	printf("\n--- %s ping statistics ---\n", s_info->host);
-	printf("%d packets transmitted, %d received, ", p_info->nb_send,
-	       p_info->nb_ok);
+	printf("\n--- %s ping statistics ---\n", si->host);
+	printf("%d packets transmitted, %d received, ", pi->nb_send, pi->nb_ok);
 
-	if (p_info->nb_err)
-		printf("+%d errors, ", p_info->nb_err);
+	if (pi->nb_err)
+		printf("+%d errors, ", pi->nb_err);
 
-	printf("%d%% packet loss, time %dms\n",
-	       (int)calc_perc_packet_loss(p_info), ms);
-
-	if (p_info->nb_ok)
+	printf("%d%% packet loss, time %dms\n", (int)calc_packet_loss(pi), ms);
+	if (pi->nb_ok)
 		printf("rtt min/avg/max/stddev = xxx/xxx/xxx/xxx ms\n");
 }

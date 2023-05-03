@@ -6,7 +6,7 @@
 /*   By: llefranc <llefranc@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/04/26 16:21:28 by llefranc          #+#    #+#             */
-/*   Updated: 2023/05/02 19:02:20 by llefranc         ###   ########.fr       */
+/*   Updated: 2023/05/03 17:17:37 by llefranc         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -17,6 +17,18 @@
 
 #define IP_TTL_VALUE 64
 #define ICMP_BODY_SIZE 56
+
+/**
+ * The different available options of ft_ping.
+ * @help: Help option (display help).
+ * @quiet: Quiet option (no output when receiving a packet).
+ * @verb: Verbose option (display content of each received packet).
+ */
+struct options {
+	_Bool help;
+	_Bool quiet;
+	_Bool verb;
+};
 
 /**
  * Contain the information relative to the ICMP packets.
@@ -43,7 +55,7 @@ struct packinfo {
 struct sockinfo {
 	char *host;
 	struct sockaddr_in remote_addr;
-	char str_sin_addr[sizeof("xxx.xxx.xxx.xxx")];
+	char str_sin_addr[INET_ADDRSTRLEN];
 };
 
 /**
@@ -56,19 +68,21 @@ enum e_packtype {
 	E_PACK_RECV,
 };
 
-int ping_check(int ac);
-int ping_init_sock(int *sock_fd, struct sockinfo *s_info, char *host, int ttl);
+int check_rights();
+int check_args(int ac, char **av, char **host, struct options *opts);
 
-void print_start_info(const struct sockinfo *s_info);
-int print_recv_info(const struct sockinfo *s_info, const uint8_t *buf,
+int init_sock(int *sock_fd, struct sockinfo *si, char *host, int ttl);
+
+void print_help();
+void print_start_info(const struct sockinfo *si);
+int print_recv_info(const struct sockinfo *si, const uint8_t *buf,
 		    int packet_len, int ttl);
 void print_packet_content(enum e_packtype type, uint8_t *buf, int packet_len);
-void print_end_info(const struct sockinfo *s_info,
-		    const struct packinfo *p_info);
+void print_end_info(const struct sockinfo *si, const struct packinfo *pi);
 
-int icmp_send_ping(int sock_fd, const struct sockinfo *s_info,
-		   struct packinfo *p_info);
-int icmp_recv_ping(int sock_fd, const struct sockinfo *s_info,
-		   struct packinfo *p_info);
+int icmp_send_ping(int sock_fd, const struct sockinfo *si, struct packinfo *pi,
+		   const struct options *opts);
+int icmp_recv_ping(int sock_fd, const struct sockinfo *si, struct packinfo *pi,
+		   const struct options *opts);
 
 #endif /* PING_H */

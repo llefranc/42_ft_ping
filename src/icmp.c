@@ -6,7 +6,7 @@
 /*   By: llefranc <llefranc@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/04/26 16:30:15 by llefranc          #+#    #+#             */
-/*   Updated: 2023/05/02 18:59:01 by llefranc         ###   ########.fr       */
+/*   Updated: 2023/05/03 17:18:26 by llefranc         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -46,48 +46,47 @@ static unsigned short checksum(unsigned short *ptr, int nbytes) {
 /**
  * Fill ICMP echo request packet header, and add a timestamp to the packet body.
  */
-static int fill_icmp_echo_packet(struct packinfo *p_info, uint8_t *buf,
+static int fill_icmp_echo_packet(struct packinfo *pi, uint8_t *buf,
 				 int packet_len)
 {
 	static int seq = 1;
 	struct icmphdr *hdr = (struct icmphdr *)buf;
 	struct timeval *timestamp = (struct timeval *)(buf + sizeof(*hdr));
 
-	if (gettimeofday(&p_info->time_last_send, NULL) == -1) {
+	if (gettimeofday(&pi->time_last_send, NULL) == -1) {
 		printf("gettimeofday err: %s\n", strerror(errno));
 		return -1;
 	}
-	if (!p_info->nb_send)
-		p_info->time_first_send = p_info->time_last_send;
+	if (!pi->nb_send)
+		pi->time_first_send = pi->time_last_send;
 
-	memcpy(timestamp, &p_info->time_last_send,
-	       sizeof(p_info->time_last_send));
+	memcpy(timestamp, &pi->time_last_send, sizeof(pi->time_last_send));
 
 	hdr->type = ICMP_ECHO;
 	hdr->un.echo.id = getpid();
 	hdr->un.echo.sequence = seq++;
 	hdr->checksum = checksum((unsigned short *)buf, packet_len);
-
 	return 0;
 }
 
-int icmp_send_ping(int sock_fd, const struct sockinfo *s_info,
-		   struct packinfo *p_info)
+int icmp_send_ping(int sock_fd, const struct sockinfo *si, struct packinfo *pi,
+		   const struct options *opts)
 {
 	ssize_t nb_bytes;
 	uint8_t buf[sizeof(struct icmphdr) + ICMP_BODY_SIZE] = {};
 
-	if (fill_icmp_echo_packet(p_info, buf, sizeof(buf)) == -1)
+	if (fill_icmp_echo_packet(pi, buf, sizeof(buf)) == -1)
 		return -1;
 
 	nb_bytes = sendto(sock_fd, buf, sizeof(buf), 0,
-			  (const struct sockaddr *)&s_info->remote_addr,
-			  sizeof(s_info->remote_addr));
+			  (const struct sockaddr *)&si->remote_addr,
+			  sizeof(si->remote_addr));
 	if (nb_bytes == -1)
 		goto err;
 
-	// print_packet_content(E_PACK_SEND, buf, nb_bytes);
-	p_info->nb_send++;
+	if (!opts->quiet && opts->verb)
+		print_packet_content(E_PACK_SEND, buf, nb_bytes);
+	pi->nb_send++;
 	return 0;
 
 err:
@@ -105,7 +104,7 @@ err:
  * checking the ID field, which contain process PID. Return false if the packet
  * is an ICMP ECHO request from this process (case we're pinging localhost).
  */
-_Bool is_addressed_to_us(uint8_t *buf)
+static _Bool is_addressed_to_us(uint8_t *buf)
 {
 	struct icmphdr *hdr_sent;
 	struct icmphdr *hdr_rep = (struct icmphdr *)buf;
@@ -137,8 +136,8 @@ _Bool is_addressed_to_us(uint8_t *buf)
 * |      Internet Header + 64 bits of Original Data Datagram      |
 * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 */
-int icmp_recv_ping(int sock_fd, const struct sockinfo *s_info,
-		   struct packinfo *p_info)
+int icmp_recv_ping(int sock_fd, const struct sockinfo *si, struct packinfo *pi,
+		   const struct options *opts)
 {
 	struct msghdr msg = {};
 	struct iovec iov[1] = {};
@@ -167,11 +166,13 @@ int icmp_recv_ping(int sock_fd, const struct sockinfo *s_info,
 	if (!is_addressed_to_us((uint8_t *)hdr))
 		return 0;
 
-	ttl = ((struct iphdr *)(buf))->ttl;
-	if (print_recv_info(s_info, (uint8_t *)hdr, nb_bytes, ttl) == -1)
-		return -1;
-	// print_packet_content(E_PACK_RECV, (uint8_t *)hdr, nb_bytes);
-	hdr->type == ICMP_ECHOREPLY ? p_info->nb_ok++ : p_info->nb_err++;
+	hdr->type == ICMP_ECHOREPLY ? pi->nb_ok++ : pi->nb_err++;
+	if (opts->quiet)
+		return 1;
 
+	ttl = ((struct iphdr *)(buf))->ttl;
+	print_recv_info(si, (uint8_t *)hdr, nb_bytes, ttl);
+	if (opts->verb)
+		print_packet_content(E_PACK_RECV, (uint8_t *)hdr, nb_bytes);
 	return 1;
 }
