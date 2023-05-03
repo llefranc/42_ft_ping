@@ -6,7 +6,7 @@
 #    By: llefranc <llefranc@student.42.fr>          +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2023/04/24 12:53:39 by lucaslefran       #+#    #+#              #
-#    Updated: 2023/05/02 20:41:35 by llefranc         ###   ########.fr        #
+#    Updated: 2023/05/03 20:59:40 by llefranc         ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -22,7 +22,7 @@ OBJS		=	$(SRCS:.c=.o)
 
 CC		=	gcc
 
-FLAGS		=	-g -fsanitize=address -Wall -Werror -Wextra
+FLAGS		=	-Wall -Werror -Wextra
 
 all		:	$(NAME)
 
