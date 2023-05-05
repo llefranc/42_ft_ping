@@ -6,7 +6,7 @@
 /*   By: llefranc <llefranc@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/05/02 19:28:43 by llefranc          #+#    #+#             */
-/*   Updated: 2023/05/03 20:46:01 by llefranc         ###   ########.fr       */
+/*   Updated: 2023/05/05 15:55:15 by llefranc         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -90,12 +90,12 @@ int check_args(int ac, char **av, char **host, struct options *opts)
 			*host = av[i];
 		}
 	}
-	if (*host == NULL) {
-		printf("ft_ping: usage error: Destination address required\n");
-		return -1;
-	}
 	if (opts->help) {
 		print_help();
+		return -1;
+	}
+	if (*host == NULL) {
+		printf("ft_ping: usage error: Destination address required\n");
 		return -1;
 	}
 	return 0;

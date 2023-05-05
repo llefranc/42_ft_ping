@@ -6,7 +6,7 @@
 /*   By: llefranc <llefranc@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/04/26 16:21:28 by llefranc          #+#    #+#             */
-/*   Updated: 2023/05/03 20:54:39 by llefranc         ###   ########.fr       */
+/*   Updated: 2023/05/05 16:11:11 by llefranc         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -20,6 +20,28 @@
 #define IP_HDR_SIZE (sizeof(struct iphdr))
 #define ICMP_HDR_SIZE (sizeof(struct icmphdr))
 #define ICMP_BODY_SIZE 56
+
+/**
+ * Ft_ping exit codes.
+ * @E_EXIT_OK: At least one ICMP echo reply packet was received from target.
+ * @E_EXIT_NO_REPLY: No ICMP echo reply packet was received from target.
+ * @E_EXIT_ERR: An error occured.
+ */
+enum e_exitcode {
+	E_EXIT_OK,
+	E_EXIT_NO_REPLY,
+	E_EXIT_ERR
+};
+
+/**
+ * Indicate if a packet was sent or received.
+ * @E_PACK_SEND: The packet was sent.
+ * @E_PACK_RECV: The packet was received.
+ */
+enum e_packtype {
+	E_PACK_SEND,
+	E_PACK_RECV,
+};
 
 /**
  * The different available options for ft_ping.
@@ -59,16 +81,6 @@ struct sockinfo {
 	char *host;
 	struct sockaddr_in remote_addr;
 	char str_sin_addr[INET_ADDRSTRLEN];
-};
-
-/**
- * Indicate if a packet was sent or received.
- * @E_PACK_SEND: The packet was sent.
- * @E_PACK_RECV: The packet was received.
- */
-enum e_packtype {
-	E_PACK_SEND,
-	E_PACK_RECV,
 };
 
 /**

@@ -6,7 +6,7 @@
 /*   By: llefranc <llefranc@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/04/24 12:54:16 by lucaslefran       #+#    #+#             */
-/*   Updated: 2023/05/03 20:04:59 by llefranc         ###   ########.fr       */
+/*   Updated: 2023/05/05 16:07:46 by llefranc         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -36,9 +36,9 @@ int main(int ac, char **av)
 	struct packinfo pi = {};
 
 	if (check_rights() == -1 || check_args(ac, av, &host, &opts) == -1)
-		return 1;
+		return E_EXIT_ERR;
 	if (init_sock(&sock_fd, &si, host, IP_TTL_VALUE) == -1)
-		return 1;
+		return E_EXIT_ERR;
 
 	signal(SIGINT, &handler);
 	signal(SIGALRM, &handler);
@@ -57,9 +57,9 @@ int main(int ac, char **av)
 	print_end_info(&si, &pi);
 
 	close(sock_fd);
-	return 0;
+	return pi.nb_ok > 0 ? E_EXIT_OK : E_EXIT_NO_REPLY;
 
 fatal_close_sock:
 	close(sock_fd);
-	return 1;
+	return E_EXIT_ERR;
 }
