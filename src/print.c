@@ -6,7 +6,7 @@
 /*   By: llefranc <llefranc@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/04/26 16:29:34 by llefranc          #+#    #+#             */
-/*   Updated: 2023/05/11 16:36:46 by llefranc         ###   ########.fr       */
+/*   Updated: 2023/05/11 17:07:28 by llefranc         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -25,10 +25,9 @@
  */
 void print_help()
 {
-	printf("Usage\n"
-	       "  ping [options] <destination>\n\n"
-	       "Options:\n"
-	       "  <destination>      Dns name or ip address\n"
+	printf("Usage: ping [OPTION...] HOST ...\n"
+	       "Send ICMP ECHO_REQUEST packets to network hosts.\n\n"
+	       " Options:\n"
 	       "  -h                 Show help\n"
 	       "  -q                 Quiet output\n"
 	       "  -v                 Verbose output\n");
@@ -39,9 +38,8 @@ void print_help()
  */
 void print_start_info(const struct sockinfo *si)
 {
-	printf("PING %s (%s) %d(%zu) bytes of data.\n", si->host,
-	       si->str_sin_addr, ICMP_BODY_SIZE,
-	       IP_HDR_SIZE + ICMP_HDR_SIZE + ICMP_BODY_SIZE);
+	printf("PING %s (%s): %d data bytes\n", si->host, si->str_sin_addr,
+	       ICMP_BODY_SIZE);
 }
 
 /**
@@ -131,7 +129,6 @@ static void print_icmp_err(int type, int code) {
 
 /**
  * Calculate and print the RTT of a received ICMP echo reply packet.
- * If RTT > 1ms, format is x.xxms. If RTT < 1ms, format is 0.xxxms.
  */
 static int print_icmp_rtt(const struct timeval *t_send)
 {
@@ -147,13 +144,8 @@ static int print_icmp_rtt(const struct timeval *t_send)
 	timersub(&t_recv, t_send, &rtt);
 	msec = rtt.tv_sec * 1000 + rtt.tv_usec / 1000;
 	usec = rtt.tv_usec % 1000;
-	if (msec > 0) {
-		usec = (usec % 1000) / 10;
-		printf("time=%ld.%02ld ms\n", msec, usec);
-	} else {
-		usec %= 1000;
-		printf("time=%ld.%03ld ms\n", msec, usec);
-	}
+	usec %= 1000;
+	printf("time=%ld,%03ld ms\n", msec, usec);
 	return 0;
 }
 
@@ -177,8 +169,8 @@ int print_recv_info(void *buf, ssize_t nb_bytes)
 	struct icmphdr *err_icmph;
 
 	inet_ntop(AF_INET, &iph->saddr, addr, INET_ADDRSTRLEN);
+	printf("%ld bytes from %s: ", nb_bytes - IP_HDR_SIZE, addr);
 	if (icmph->type == ICMP_ECHOREPLY) {
-		printf("%ld bytes from %s: ", nb_bytes - IP_HDR_SIZE, addr);
 		printf("icmp_seq=%d ttl=%d ", icmph->un.echo.sequence, iph->ttl);
 		if (print_icmp_rtt(icmpb) == -1)
 			return -1;
@@ -186,7 +178,6 @@ int print_recv_info(void *buf, ssize_t nb_bytes)
 		/* If error, jump to ICMP sent packet header stored in body */
 		err_icmph = (struct icmphdr *)((uint8_t *)icmph + IP_HDR_SIZE
 		            + ICMP_HDR_SIZE);
-		printf("From %s: ", addr);
 		printf("icmp_seq=%d ", err_icmph->un.echo.sequence);
 		print_icmp_err(icmph->type, icmph->code);
 	}

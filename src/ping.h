@@ -6,7 +6,7 @@
 /*   By: llefranc <llefranc@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/04/26 16:21:28 by llefranc          #+#    #+#             */
-/*   Updated: 2023/05/11 16:30:56 by llefranc         ###   ########.fr       */
+/*   Updated: 2023/05/11 17:07:14 by llefranc         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -24,13 +24,13 @@
 /**
  * Ft_ping exit codes.
  * @E_EXIT_OK: At least one ICMP echo reply packet was received from target.
- * @E_EXIT_NO_REPLY: No ICMP echo reply packet was received from target.
- * @E_EXIT_ERR: An error occured.
+ * @E_EXIT_ERR_HOST: No ICMP echo reply packet was received from target.
+ * @E_EXIT_ERR_ARGS: An error occured while parsing arguments.
  */
 enum e_exitcode {
 	E_EXIT_OK,
-	E_EXIT_NO_REPLY,
-	E_EXIT_ERR
+	E_EXIT_ERR_HOST,
+	E_EXIT_ERR_ARGS = 64
 };
 
 /**

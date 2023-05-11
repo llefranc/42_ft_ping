@@ -6,7 +6,7 @@
 /*   By: llefranc <llefranc@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/05/02 19:28:43 by llefranc          #+#    #+#             */
-/*   Updated: 2023/05/05 15:55:15 by llefranc         ###   ########.fr       */
+/*   Updated: 2023/05/11 17:05:53 by llefranc         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -61,8 +61,8 @@ static int parse_opt_arg(char *arg, struct options *opts)
 				printf("ping: unknown option\n");
 			}
 		} else {
-			printf("ft_ping: Invalid option -- '%c'\n\n", arg[i]);
-			print_help();
+			printf("ft_ping: invalid option -- '%c'\n", arg[i]);
+			printf("Try 'ping -h' for more information.\n");
 			return -1;
 		}
 	}
@@ -77,25 +77,33 @@ static int parse_opt_arg(char *arg, struct options *opts)
  * @host: Will point to the last non-option argument.
  * @opts: Flags will be init based on options argument.
  *
- * Return: 0 on success, -1 if there is no argument, an unknow option or help
- *         option.
+ * Return: 0 on success, -1 if there is no argument or an unknow option, and 1
+ *         if help option was met.
  */
 int check_args(int ac, char **av, char **host, struct options *opts)
 {
+	int nb_host = 0;
+
 	for (int i = 1; i < ac; ++i) {
 		if (av[i][0] == '-' && strlen (av[i]) > 1) {
 			if (parse_opt_arg(av[i], opts) == -1)
 				return -1;
 		} else {
 			*host = av[i];
+			++nb_host;
+		}
+		if (opts->help) {
+			print_help();
+			return 1;
 		}
 	}
-	if (opts->help) {
-		print_help();
+	if (!nb_host) {
+		printf("ft_ping: missing host operand\n");
+		printf("Try 'ping -h' for more information.\n");
 		return -1;
-	}
-	if (*host == NULL) {
-		printf("ft_ping: usage error: Destination address required\n");
+	} else if (nb_host > 1) {
+		printf("ft_ping: only one host is needed\n");
+		printf("Try 'ping -h' for more information.\n");
 		return -1;
 	}
 	return 0;

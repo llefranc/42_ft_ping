@@ -6,7 +6,7 @@
 #    By: llefranc <llefranc@student.42.fr>          +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2023/04/24 12:53:39 by lucaslefran       #+#    #+#              #
-#    Updated: 2023/05/03 20:59:40 by llefranc         ###   ########.fr        #
+#    Updated: 2023/05/11 16:46:13 by llefranc         ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -28,7 +28,7 @@ all		:	$(NAME)
 
 $(NAME)		:	$(addprefix $(PATH_SRCS), $(OBJS))
 				$(CC) -o $(NAME) $(addprefix $(PATH_SRCS), $(OBJS)) $(FLAGS)
-				@echo "ping is ready";
+				@echo "ft_ping is ready";
 
 clean		:
 				rm -rf $(addprefix $(PATH_SRCS), $(OBJS))

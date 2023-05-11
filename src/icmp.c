@@ -6,7 +6,7 @@
 /*   By: llefranc <llefranc@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/04/26 16:30:15 by llefranc          #+#    #+#             */
-/*   Updated: 2023/05/11 16:35:02 by llefranc         ###   ########.fr       */
+/*   Updated: 2023/05/11 16:43:56 by llefranc         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -55,7 +55,7 @@ static unsigned short checksum(unsigned short *ptr, int nbytes) {
  */
 static int fill_icmp_echo_packet(uint8_t *buf, int packet_len)
 {
-	static int seq = 1;
+	static int seq = 0;
 	struct icmphdr *hdr = (struct icmphdr *)buf;
 	struct timeval *timestamp = skip_icmphdr(buf);
 
