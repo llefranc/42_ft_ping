@@ -6,7 +6,7 @@
 /*   By: llefranc <llefranc@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/04/26 16:21:28 by llefranc          #+#    #+#             */
-/*   Updated: 2023/05/11 17:07:14 by llefranc         ###   ########.fr       */
+/*   Updated: 2023/05/11 18:45:05 by llefranc         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -31,16 +31,6 @@ enum e_exitcode {
 	E_EXIT_OK,
 	E_EXIT_ERR_HOST,
 	E_EXIT_ERR_ARGS = 64
-};
-
-/**
- * Indicate if a packet was sent or received.
- * @E_PACK_SEND: The packet was sent.
- * @E_PACK_RECV: The packet was received.
- */
-enum e_packtype {
-	E_PACK_SEND,
-	E_PACK_RECV,
 };
 
 /**
@@ -103,15 +93,13 @@ int check_args(int ac, char **av, char **host, struct options *opts);
 int init_sock(int *sock_fd, struct sockinfo *si, char *host, int ttl);
 
 /* icmp.c*/
-int icmp_send_ping(int sock_fd, const struct sockinfo *si, struct packinfo *pi,
-		   const struct options *opts);
+int icmp_send_ping(int sock_fd, const struct sockinfo *si, struct packinfo *pi);
 int icmp_recv_ping(int sock_fd, struct packinfo *pi, const struct options *opts);
 
 /* print.c */
 void print_help();
-void print_start_info(const struct sockinfo *si);
-int print_recv_info(void *buf, ssize_t nb_bytes);
-void print_icmp_packet(enum e_packtype type, uint8_t *buf, ssize_t nb_bytes);
+void print_start_info(const struct sockinfo *si, const struct options *opts);
+int print_recv_info(void *buf, ssize_t nb_bytes, const struct options *opts);
 void print_end_info(const struct sockinfo *si, const struct packinfo *pi);
 
 #endif /* PING_H */

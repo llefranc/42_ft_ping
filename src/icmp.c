@@ -6,7 +6,7 @@
 /*   By: llefranc <llefranc@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/04/26 16:30:15 by llefranc          #+#    #+#             */
-/*   Updated: 2023/05/11 16:43:56 by llefranc         ###   ########.fr       */
+/*   Updated: 2023/05/11 18:41:08 by llefranc         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -75,12 +75,10 @@ static int fill_icmp_echo_packet(uint8_t *buf, int packet_len)
  * @sock_fd: RAW socket file descriptor.
  * @si: Contain the information relative to the remote socket to ping.
  * @pi: Contain the information relative to the ICMP packets.
- * @opts: The different available options for ft_ping.
  *
  * Return: 0 if packet was successfully sent, -1 in case of error.
  */
-int icmp_send_ping(int sock_fd, const struct sockinfo *si, struct packinfo *pi,
-		   const struct options *opts)
+int icmp_send_ping(int sock_fd, const struct sockinfo *si, struct packinfo *pi)
 {
 	ssize_t nb_bytes;
 	uint8_t buf[sizeof(struct icmphdr) + ICMP_BODY_SIZE] = {};
@@ -93,9 +91,6 @@ int icmp_send_ping(int sock_fd, const struct sockinfo *si, struct packinfo *pi,
 			  sizeof(si->remote_addr));
 	if (nb_bytes == -1)
 		goto err;
-
-	if (!opts->quiet && opts->verb)
-		print_icmp_packet(E_PACK_SEND, buf, nb_bytes);
 	pi->nb_send++;
 	return 0;
 
@@ -165,12 +160,8 @@ int icmp_recv_ping(int sock_fd, struct packinfo *pi, const struct options *opts)
 	if (icmph->type == ICMP_ECHOREPLY)
 		pi->nb_ok++;
 	if (!opts->quiet) {
-		if (print_recv_info(buf, nb_bytes) == -1)
+		if (print_recv_info(buf, nb_bytes, opts) == -1)
 			return -1;
-		if (opts->verb) {
-			print_icmp_packet(E_PACK_RECV, (uint8_t *)icmph,
-			                  nb_bytes - IP_HDR_SIZE);
-		}
 	}
 	return 1;
 }

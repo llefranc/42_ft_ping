@@ -6,7 +6,7 @@
 /*   By: llefranc <llefranc@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/04/24 12:54:16 by lucaslefran       #+#    #+#             */
-/*   Updated: 2023/05/11 16:54:55 by llefranc         ###   ########.fr       */
+/*   Updated: 2023/05/11 18:35:19 by llefranc         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -46,11 +46,11 @@ int main(int ac, char **av)
 	signal(SIGINT, &handler);
 	signal(SIGALRM, &handler);
 
-	print_start_info(&si);
+	print_start_info(&si, &opts);
 	while (pingloop) {
 		if (send_packet) {
 			send_packet = 0;
-			if (icmp_send_ping(sock_fd, &si, &pi, &opts) == -1)
+			if (icmp_send_ping(sock_fd, &si, &pi) == -1)
 				goto fatal_close_sock;
 			alarm(1);
 		}

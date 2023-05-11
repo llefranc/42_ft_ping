@@ -6,12 +6,14 @@
 /*   By: llefranc <llefranc@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/04/26 16:29:34 by llefranc          #+#    #+#             */
-/*   Updated: 2023/05/11 17:07:28 by llefranc         ###   ########.fr       */
+/*   Updated: 2023/05/11 18:45:56 by llefranc         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "ping.h"
 
+#include <sys/types.h>
+#include <unistd.h>
 #include <stdio.h>
 #include <errno.h>
 #include <string.h>
@@ -36,10 +38,17 @@ void print_help()
 /**
  * Print the information at start of ft_ping.
  */
-void print_start_info(const struct sockinfo *si)
+void print_start_info(const struct sockinfo *si, const struct options *opts)
 {
-	printf("PING %s (%s): %d data bytes\n", si->host, si->str_sin_addr,
+	int pid;
+
+	printf("PING %s (%s): %d data bytes", si->host, si->str_sin_addr,
 	       ICMP_BODY_SIZE);
+	if (opts->verb) {
+		pid = getpid();
+		printf(", id 0x%04x = %d", pid, pid);
+	}
+	printf("\n");
 }
 
 /**
@@ -150,23 +159,57 @@ static int print_icmp_rtt(const struct timeval *t_send)
 }
 
 /**
+ * Print detailed content of the body of an errored ICMP packet which consist
+ * of : IP header, ICMP header and ICMP body .
+ * @buf: Buffer fill with the errored ICMP body (IP header + ICMP header
+ *       + ICMP body).
+ */
+static void print_err_icmp_body(uint8_t *buf)
+{
+	struct iphdr *ipb = skip_icmphdr((struct icmphdr *)buf);
+	struct icmphdr *icmpb = skip_iphdr(ipb);
+	uint8_t *bytes = (uint8_t *)ipb;
+	char str[INET_ADDRSTRLEN];
+
+	printf("IP Hdr Dump:\n");
+	for (size_t i = 0; i < sizeof(struct iphdr); i += 2) {
+		printf(" %02x%02x", *bytes, *(bytes + 1));
+		bytes += 2;
+	}
+	printf("\nVr HL TOS  Len   ID Flg  off TTL Pro  cks      Src	"
+	       "Dst	Data\n");
+	printf(" %x  %x  %02x %04x %04x   %x %04x  %02x  %02x %04x ",
+	       ipb->version, ipb->ihl, ipb->tos, ntohs(ipb->tot_len),
+	       ntohs(ipb->id), ntohs(ipb->frag_off) >> 13,
+	       ntohs(ipb->frag_off) & 0x1FFF, ipb->ttl, ipb->protocol,
+	       ntohs(ipb->check));
+	inet_ntop(AF_INET, &ipb->saddr, str, sizeof(str));
+	printf("%s  ", str);
+	inet_ntop(AF_INET, &ipb->daddr, str, sizeof(str));
+	printf("%s\n", str);
+	printf("ICMP: type %x, code %x, size %zu, id %#04x, seq 0x%04x\n",
+	       icmpb->type, icmpb->code, ICMP_BODY_SIZE + sizeof(*icmpb),
+	       icmpb->un.echo.id, icmpb->un.echo.sequence);
+}
+
+/**
  * Print information of a received packet following a ICMP echo request:
  *    - If it's an echo reply, print number of bytes received, source IP
  *      address, sequence number, ttl value and rtt.
- *    - If it's an error packet, print source IP address, sequence number
- *      and the appropriate error message.
+ *    - If it's an error packet, print source IP address, the appropriate
+ *      error message, and the detailed content of packet is verbose option is
+ *      on.
  * @buf: Buffer fill with the received packet (IP header + ICMP).
  * @nb_bytes: Number of bytes received.
  *
  * Return: 0 on success, -1 on error.
  */
-int print_recv_info(void *buf, ssize_t nb_bytes)
+int print_recv_info(void *buf, ssize_t nb_bytes, const struct options *opts)
 {
 	char addr[INET_ADDRSTRLEN] = {};
 	struct iphdr *iph = buf;
 	struct icmphdr *icmph = skip_iphdr(iph);
 	struct timeval *icmpb = skip_icmphdr(icmph);
-	struct icmphdr *err_icmph;
 
 	inet_ntop(AF_INET, &iph->saddr, addr, INET_ADDRSTRLEN);
 	printf("%ld bytes from %s: ", nb_bytes - IP_HDR_SIZE, addr);
@@ -175,47 +218,11 @@ int print_recv_info(void *buf, ssize_t nb_bytes)
 		if (print_icmp_rtt(icmpb) == -1)
 			return -1;
 	} else {
-		/* If error, jump to ICMP sent packet header stored in body */
-		err_icmph = (struct icmphdr *)((uint8_t *)icmph + IP_HDR_SIZE
-		            + ICMP_HDR_SIZE);
-		printf("icmp_seq=%d ", err_icmph->un.echo.sequence);
 		print_icmp_err(icmph->type, icmph->code);
+		if (opts->verb)
+			print_err_icmp_body((uint8_t *)icmph);
 	}
 	return 0;
-}
-
-/**
- * Print the content of a sent or received ICMP packet.
- * @type: Indicate the type of packet (either E_PACK_SEND or E_PACK_RECV).
- * @buf: Buffer fill with the ICMP packet (header + body).
- * @nb_bytes: Length of the packet.
- */
-void print_icmp_packet(enum e_packtype type, uint8_t *buf, ssize_t nb_bytes)
-{
-	struct icmphdr *hdr = (struct icmphdr *)buf;
-	struct timeval *tv;
-	char *step_str = type == E_PACK_SEND ? "SENT" : "RECEIVED";
-
-	printf("----------------------------------------------\n");
-	printf("Packet state: %s\n\n", step_str);
-
-	printf("ICMP header\n");
-	printf("  type: %d\n", hdr->type);
-	printf("  code: %d\n", hdr->code);
-	printf("  checksum: %d\n", hdr->checksum);
-
-	if (hdr->type == ICMP_ECHO || hdr->type == ICMP_ECHOREPLY) {
-		tv = skip_icmphdr(buf);
-		printf("  id: %d\n", hdr->un.echo.id);
-		printf("  sequence: %d\n", hdr->un.echo.sequence);
-		printf("ICMP body:\n");
-		printf("  timestamp: %lds, %ldms\n\n", tv->tv_sec, tv->tv_usec);
-	}
-	printf("Packet content (ICMP header + body, %ld bytes):\n\n", nb_bytes);
-	for (int i = 0; i < nb_bytes; ++i) {
-		printf("%02x ", buf[i]);
-	}
-	printf("\n----------------------------------------------\n");
 }
 
 /**
