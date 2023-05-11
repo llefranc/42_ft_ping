@@ -6,7 +6,7 @@
 /*   By: llefranc <llefranc@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/04/26 16:21:28 by llefranc          #+#    #+#             */
-/*   Updated: 2023/05/05 16:11:11 by llefranc         ###   ########.fr       */
+/*   Updated: 2023/05/11 16:30:56 by llefranc         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -59,16 +59,10 @@ struct options {
  * Contain the information relative to the ICMP packets.
  * @nb_send: The number of ICMP echo request packets sent.
  * @nb_ok: The number of ICMP echo response packets received.
- * @nb_err: The number of ICMP packets other than response packet received.
- * @time_first_send: The timestamp of the first ICMP packet sent.
- * @time_last_send:The timestamp of the last ICMP packet sent.
  */
 struct packinfo {
 	int nb_send;
 	int nb_ok;
-	int nb_err;
-	struct timeval time_first_send;
-	struct timeval time_last_send;
 };
 
 /**

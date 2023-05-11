@@ -6,7 +6,7 @@
 /*   By: llefranc <llefranc@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/04/26 16:29:34 by llefranc          #+#    #+#             */
-/*   Updated: 2023/05/03 20:45:31 by llefranc         ###   ########.fr       */
+/*   Updated: 2023/05/11 16:36:46 by llefranc         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -236,30 +236,13 @@ static inline float calc_packet_loss(const struct packinfo *pi)
 }
 
 /**
- * Calculate the number of milliseconds elapsed between two timeval struct.
- */
-static inline int calc_ms_elapsed(const struct timeval *start,
-				  const struct timeval *end)
-{
-	struct timeval diff = {};
-
-	timersub(end, start, &diff);
-	return diff.tv_sec * 1000 + diff.tv_usec / 1000;
-}
-
-/**
  * Print the different statistics for all send packets at the end of ft_ping
  * command.
  */
 void print_end_info(const struct sockinfo *si, const struct packinfo *pi)
 {
-	int ms = calc_ms_elapsed(&pi->time_first_send, &pi->time_last_send);
-
 	printf("\n--- %s ping statistics ---\n", si->host);
-	printf("%d packets transmitted, %d received, ", pi->nb_send, pi->nb_ok);
-
-	if (pi->nb_err)
-		printf("+%d errors, ", pi->nb_err);
-
-	printf("%d%% packet loss, time %dms\n", (int)calc_packet_loss(pi), ms);
+	printf("%d packets transmitted, %d packets received, "
+	       "%d%% packet loss\n", pi->nb_send, pi->nb_ok,
+	       (int)calc_packet_loss(pi));
 }

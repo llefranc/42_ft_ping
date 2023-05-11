@@ -6,7 +6,7 @@
 /*   By: llefranc <llefranc@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/04/26 16:30:15 by llefranc          #+#    #+#             */
-/*   Updated: 2023/05/03 20:54:39 by llefranc         ###   ########.fr       */
+/*   Updated: 2023/05/11 16:35:02 by llefranc         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -53,22 +53,16 @@ static unsigned short checksum(unsigned short *ptr, int nbytes) {
 /**
  * Fill ICMP echo request packet header, and add a timestamp to the packet body.
  */
-static int fill_icmp_echo_packet(struct packinfo *pi, uint8_t *buf,
-				 int packet_len)
+static int fill_icmp_echo_packet(uint8_t *buf, int packet_len)
 {
 	static int seq = 1;
 	struct icmphdr *hdr = (struct icmphdr *)buf;
 	struct timeval *timestamp = skip_icmphdr(buf);
 
-	if (gettimeofday(&pi->time_last_send, NULL) == -1) {
+	if (gettimeofday(timestamp, NULL) == -1) {
 		printf("gettimeofday err: %s\n", strerror(errno));
 		return -1;
 	}
-	if (!pi->nb_send)
-		pi->time_first_send = pi->time_last_send;
-
-	memcpy(timestamp, &pi->time_last_send, sizeof(pi->time_last_send));
-
 	hdr->type = ICMP_ECHO;
 	hdr->un.echo.id = getpid();
 	hdr->un.echo.sequence = seq++;
@@ -91,7 +85,7 @@ int icmp_send_ping(int sock_fd, const struct sockinfo *si, struct packinfo *pi,
 	ssize_t nb_bytes;
 	uint8_t buf[sizeof(struct icmphdr) + ICMP_BODY_SIZE] = {};
 
-	if (fill_icmp_echo_packet(pi, buf, sizeof(buf)) == -1)
+	if (fill_icmp_echo_packet(buf, sizeof(buf)) == -1)
 		return -1;
 
 	nb_bytes = sendto(sock_fd, buf, sizeof(buf), 0,
@@ -168,7 +162,8 @@ int icmp_recv_ping(int sock_fd, struct packinfo *pi, const struct options *opts)
 	if (!is_addressed_to_us((uint8_t *)icmph))
 		return 0;
 
-	icmph->type == ICMP_ECHOREPLY ? pi->nb_ok++ : pi->nb_err++;
+	if (icmph->type == ICMP_ECHOREPLY)
+		pi->nb_ok++;
 	if (!opts->quiet) {
 		if (print_recv_info(buf, nb_bytes) == -1)
 			return -1;
