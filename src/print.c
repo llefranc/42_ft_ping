@@ -6,7 +6,7 @@
 /*   By: llefranc <llefranc@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/04/26 16:29:34 by llefranc          #+#    #+#             */
-/*   Updated: 2023/05/11 18:45:56 by llefranc         ###   ########.fr       */
+/*   Updated: 2023/05/15 21:42:52 by llefranc         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -137,25 +137,17 @@ static void print_icmp_err(int type, int code) {
 }
 
 /**
- * Calculate and print the RTT of a received ICMP echo reply packet.
+ * Print a rtt as format "a,bbb", where a is seconds and b milliseconds.
  */
-static int print_icmp_rtt(const struct timeval *t_send)
+static void print_icmp_rtt(const struct timeval *rtt)
 {
 	long msec;
 	long usec;
-	struct timeval t_recv;
-	struct timeval rtt = {};
 
-	if (gettimeofday(&t_recv, NULL) == -1) {
-		printf("gettimeofday err: %s\n", strerror(errno));
-		return -1;
-	}
-	timersub(&t_recv, t_send, &rtt);
-	msec = rtt.tv_sec * 1000 + rtt.tv_usec / 1000;
-	usec = rtt.tv_usec % 1000;
+	msec = rtt->tv_sec * 1000 + rtt->tv_usec / 1000;
+	usec = rtt->tv_usec % 1000;
 	usec %= 1000;
-	printf("time=%ld,%03ld ms\n", msec, usec);
-	return 0;
+	printf("%ld,%03ld", msec, usec);
 }
 
 /**
@@ -201,23 +193,27 @@ static void print_err_icmp_body(uint8_t *buf)
  *      on.
  * @buf: Buffer fill with the received packet (IP header + ICMP).
  * @nb_bytes: Number of bytes received.
+ * @opts: ft_ping enabled options.
+ * @pi: Filled with packets' statistics.
  *
  * Return: 0 on success, -1 on error.
  */
-int print_recv_info(void *buf, ssize_t nb_bytes, const struct options *opts)
+int print_recv_info(void *buf, ssize_t nb_bytes, const struct options *opts,
+                    const struct packinfo *pi)
 {
 	char addr[INET_ADDRSTRLEN] = {};
 	struct iphdr *iph = buf;
 	struct icmphdr *icmph = skip_iphdr(iph);
-	struct timeval *icmpb = skip_icmphdr(icmph);
 
 	inet_ntop(AF_INET, &iph->saddr, addr, INET_ADDRSTRLEN);
-	printf("%ld bytes from %s: ", nb_bytes - IP_HDR_SIZE, addr);
-	if (icmph->type == ICMP_ECHOREPLY) {
-		printf("icmp_seq=%d ttl=%d ", icmph->un.echo.sequence, iph->ttl);
-		if (print_icmp_rtt(icmpb) == -1)
-			return -1;
-	} else {
+	if (!opts->quiet && icmph->type == ICMP_ECHOREPLY) {
+		printf("%ld bytes from %s: ", nb_bytes - IP_HDR_SIZE, addr);
+		printf("icmp_seq=%d ttl=%d time=", icmph->un.echo.sequence,
+		        iph->ttl);
+		print_icmp_rtt(&pi->rtt_last->val);
+		printf(" ms\n");
+	} else if (icmph->type != ICMP_ECHOREPLY) {
+		printf("%ld bytes from %s: ", nb_bytes - IP_HDR_SIZE, addr);
 		print_icmp_err(icmph->type, icmph->code);
 		if (opts->verb)
 			print_err_icmp_body((uint8_t *)icmph);
@@ -237,10 +233,22 @@ static inline float calc_packet_loss(const struct packinfo *pi)
  * Print the different statistics for all send packets at the end of ft_ping
  * command.
  */
-void print_end_info(const struct sockinfo *si, const struct packinfo *pi)
+void print_end_info(const struct sockinfo *si, struct packinfo *pi)
 {
 	printf("\n--- %s ping statistics ---\n", si->host);
 	printf("%d packets transmitted, %d packets received, "
 	       "%d%% packet loss\n", pi->nb_send, pi->nb_ok,
 	       (int)calc_packet_loss(pi));
+	if (pi->nb_ok) {
+		rtts_calc_stats(pi);
+		printf("round-trip min/avg/max/stddev = ");
+		print_icmp_rtt(pi->min);
+		printf("/");
+		print_icmp_rtt(&pi->avg);
+		printf("/");
+		print_icmp_rtt(pi->max);
+		printf("/");
+		print_icmp_rtt(&pi->stddev);
+		printf(" ms\n");
+	}
 }

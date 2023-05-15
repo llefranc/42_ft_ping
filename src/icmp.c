@@ -6,7 +6,7 @@
 /*   By: llefranc <llefranc@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/04/26 16:30:15 by llefranc          #+#    #+#             */
-/*   Updated: 2023/05/11 18:41:08 by llefranc         ###   ########.fr       */
+/*   Updated: 2023/05/15 22:11:19 by llefranc         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -157,11 +157,12 @@ int icmp_recv_ping(int sock_fd, struct packinfo *pi, const struct options *opts)
 	if (!is_addressed_to_us((uint8_t *)icmph))
 		return 0;
 
-	if (icmph->type == ICMP_ECHOREPLY)
+	if (icmph->type == ICMP_ECHOREPLY) {
 		pi->nb_ok++;
-	if (!opts->quiet) {
-		if (print_recv_info(buf, nb_bytes, opts) == -1)
+		if (rtts_save_new(pi, icmph) == NULL)
 			return -1;
 	}
+	if (print_recv_info(buf, nb_bytes, opts, pi) == -1)
+		return -1;
 	return 1;
 }

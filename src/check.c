@@ -6,7 +6,7 @@
 /*   By: llefranc <llefranc@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/05/02 19:28:43 by llefranc          #+#    #+#             */
-/*   Updated: 2023/05/11 17:05:53 by llefranc         ###   ########.fr       */
+/*   Updated: 2023/05/11 21:15:41 by llefranc         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -62,7 +62,7 @@ static int parse_opt_arg(char *arg, struct options *opts)
 			}
 		} else {
 			printf("ft_ping: invalid option -- '%c'\n", arg[i]);
-			printf("Try 'ping -h' for more information.\n");
+			printf("Try 'ft_ping -h' for more information.\n");
 			return -1;
 		}
 	}
@@ -99,11 +99,11 @@ int check_args(int ac, char **av, char **host, struct options *opts)
 	}
 	if (!nb_host) {
 		printf("ft_ping: missing host operand\n");
-		printf("Try 'ping -h' for more information.\n");
+		printf("Try 'ft_ping -h' for more information.\n");
 		return -1;
 	} else if (nb_host > 1) {
 		printf("ft_ping: only one host is needed\n");
-		printf("Try 'ping -h' for more information.\n");
+		printf("Try 'ft_ping -h' for more information.\n");
 		return -1;
 	}
 	return 0;

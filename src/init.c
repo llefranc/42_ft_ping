@@ -6,7 +6,7 @@
 /*   By: llefranc <llefranc@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/04/26 16:29:06 by llefranc          #+#    #+#             */
-/*   Updated: 2023/05/02 21:54:39 by llefranc         ###   ########.fr       */
+/*   Updated: 2023/05/15 21:46:42 by llefranc         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -35,10 +35,9 @@ static int init_sock_addr(struct sockinfo *si)
 		.ai_protocol = IPPROTO_ICMP
 	};
 	struct addrinfo *tmp;
-	int ret;
 
-	if ((ret = getaddrinfo(si->host, NULL, &hints, &tmp)) != 0) {
-		printf("ft_ping: %s: %s\n", si->host, gai_strerror(ret));
+	if (getaddrinfo(si->host, NULL, &hints, &tmp) != 0) {
+		printf("ft_ping: unknown host\n");
 		return -1;
 	}
 	si->remote_addr = *(struct sockaddr_in *)tmp->ai_addr;

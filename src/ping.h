@@ -6,7 +6,7 @@
 /*   By: llefranc <llefranc@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/04/26 16:21:28 by llefranc          #+#    #+#             */
-/*   Updated: 2023/05/11 18:45:05 by llefranc         ###   ########.fr       */
+/*   Updated: 2023/05/15 22:11:19 by llefranc         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -46,13 +46,37 @@ struct options {
 };
 
 /**
+ * A node containing a round-trip time as a value. Can be assembled in a linked
+ * list of round-trip times.
+ * @val: A round-trip time calculated for an ICMP echo response packet.
+ * @next: A pointer the next node.
+ */
+struct rtt_node {
+	struct timeval val;
+	struct rtt_node *next;
+};
+
+/**
  * Contain the information relative to the ICMP packets.
  * @nb_send: The number of ICMP echo request packets sent.
  * @nb_ok: The number of ICMP echo response packets received.
+ * @min: A pointer to the minimum rtt value in all the ICMP responses.
+ * @max: A pointer to the maximum rtt value in all the ICMP responses.
+ * @ave: The average rtt value from all ICMP responses.
+ * @stddev: The standard deviation from average rtt value from all ICMP
+ *          responses.
+ * @rtt_list: A linked list of all rtt values from all ICMP responses.
+ * @rtt_last: A pointer to the rtt of the last received ICMP packet.
  */
 struct packinfo {
 	int nb_send;
 	int nb_ok;
+	struct timeval *min;
+	struct timeval *max;
+	struct timeval avg;
+	struct timeval stddev;
+	struct rtt_node *rtt_list;
+	struct rtt_node *rtt_last;
 };
 
 /**
@@ -94,12 +118,19 @@ int init_sock(int *sock_fd, struct sockinfo *si, char *host, int ttl);
 
 /* icmp.c*/
 int icmp_send_ping(int sock_fd, const struct sockinfo *si, struct packinfo *pi);
-int icmp_recv_ping(int sock_fd, struct packinfo *pi, const struct options *opts);
+int icmp_recv_ping(int sock_fd, struct packinfo *pi,
+		   const struct options *opts);
 
 /* print.c */
 void print_help();
 void print_start_info(const struct sockinfo *si, const struct options *opts);
-int print_recv_info(void *buf, ssize_t nb_bytes, const struct options *opts);
-void print_end_info(const struct sockinfo *si, const struct packinfo *pi);
+int print_recv_info(void *buf, ssize_t nb_bytes, const struct options *opts,
+                    const struct packinfo *pi);
+void print_end_info(const struct sockinfo *si, struct packinfo *pi);
+
+/* rtts.c */
+struct rtt_node * rtts_save_new(struct packinfo *pi, struct icmphdr *icmph);
+void rtts_clean(struct packinfo *pi);
+void rtts_calc_stats(struct packinfo *pi);
 
 #endif /* PING_H */

@@ -6,7 +6,7 @@
 /*   By: llefranc <llefranc@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/04/24 12:54:16 by lucaslefran       #+#    #+#             */
-/*   Updated: 2023/05/11 18:35:19 by llefranc         ###   ########.fr       */
+/*   Updated: 2023/05/11 19:30:27 by llefranc         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -60,9 +60,11 @@ int main(int ac, char **av)
 	print_end_info(&si, &pi);
 
 	close(sock_fd);
+	rtts_clean(&pi);
 	return pi.nb_ok > 0 ? E_EXIT_OK : E_EXIT_ERR_HOST;
 
 fatal_close_sock:
 	close(sock_fd);
+	rtts_clean(&pi);
 	return E_EXIT_ERR_HOST;
 }

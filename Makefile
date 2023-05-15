@@ -6,13 +6,13 @@
 #    By: llefranc <llefranc@student.42.fr>          +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2023/04/24 12:53:39 by lucaslefran       #+#    #+#              #
-#    Updated: 2023/05/11 16:46:13 by llefranc         ###   ########.fr        #
+#    Updated: 2023/05/15 21:52:08 by llefranc         ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
 NAME		=	ft_ping
 
-SRCS		=	main.c init.c print.c icmp.c check.c
+SRCS		=	main.c init.c print.c icmp.c check.c rtts.c
 
 HDRS		=	ping.h
 
@@ -27,7 +27,7 @@ FLAGS		=	-Wall -Werror -Wextra
 all		:	$(NAME)
 
 $(NAME)		:	$(addprefix $(PATH_SRCS), $(OBJS))
-				$(CC) -o $(NAME) $(addprefix $(PATH_SRCS), $(OBJS)) $(FLAGS)
+				$(CC) -o $(NAME) $(addprefix $(PATH_SRCS), $(OBJS)) $(FLAGS) -lm
 				@echo "ft_ping is ready";
 
 clean		:
