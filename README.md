@@ -9,7 +9,7 @@
 
 ft_ping is a reimplementation in C of the ping utility based on the ping implementation from inetutils-2.0.
 
-ft_ping uses raw sockets to send each second an ICMP Echo Request packet with a timestamp in its body.
+ft_ping uses a raw socket to send each second an ICMP Echo Request packet with a timestamp in its body.
 It will also display a line of information for each received ICMP packet.
 
 It accepts a simple IPv4 address or hostname as a parameter, and supports both numerical IP addresses and hostnames.
