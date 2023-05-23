@@ -8,8 +8,11 @@
 ## About
 
 ft_ping is a reimplementation in C of the ping utility based on the ping implementation from inetutils-2.0.
-ft_ping is using raw sockets to send ICMP Echo Request packets, and is displaying the ICMP Echo response packets received.
-Each second, a new ICMP Echo Request packet will be send.
+
+ft_ping uses raw sockets to send each second an ICMP Echo Request packet with a timestamp in its body.
+It will also display a line of information for each received ICMP packet.
+
+It accepts a simple IPv4 address or hostname as a parameter, and supports both numerical IP addresses and hostnames.
 
 > The program should be run with appropriate permissions, as sending ICMP Echo Request packets may require administrative privileges.
 
@@ -18,8 +21,6 @@ When receiving an ICMP packet, ft_ping will check:
 - If it's an error packet or not.
 
 ft_ping will ping the targeted host until `Ctrl+C` is pressed. It will then display statistics about the received ICMP Echo Response packets.
-
-ft_ping can accept a simple IPv4 address or hostname as a parameter. It supports both numerical IP addresses and hostnames.
 
 ft_ping supports also the following options :
 - `-h`: provides help information about the usage and command-line options of ft_ping.
