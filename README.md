@@ -9,16 +9,17 @@ ft_ping is using raw sockets to send ICMP echo messages, and is displaying the I
 Each second, a new ICMP echo packet will be send.
 
 When receiving an ICMP packet, ft_ping is checking if this ICMP packet was correctly addressed to its process by using the ID field of ICMP echo messages, and if it's an error packet or not.
+
 ft_ping will ping the targeted host until Ctrl+C is pressed. It will then display statistics about the received ICMP echo responses.
 
 ft_ping can accept a simple IPv4 address or hostname as a parameter. It supports both numerical IP addresses and hostnames.
 
 ft_ping supports the following options :
-- h option: The -h option provides help information about the usage and command-line options of ft_ping.
-- q option: The -q option enables quiet output, ft_ping will only display the end statistics.
-- v option: The -v option enables verbose output and allows viewing the results in case of problems or errors related to the packets.
+- `-h`: provides help information about the usage and command-line options of ft_ping.
+- `-q`: enables quiet output, ft_ping will only display the end statistics.
+- `-v`: enables verbose output and allows viewing the results in case of problems or errors related to the packets.
 
-- Here is the [subject][2]
+Here is the [subject][2].
 
 ### Building and running the project
 
