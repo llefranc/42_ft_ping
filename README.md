@@ -1,6 +1,6 @@
 # ft_ping (@42Paris)
 
-> This project was code for Linux. Here is the [subject][2].
+> This project was code for Linux. Here is the [subject][1].
 >
 
 ![Alt text](https://github.com/llefranc/42_ft_ping/blob/main/ft_ping_example.png)
@@ -17,16 +17,16 @@ When receiving an ICMP packet, ft_ping will check:
 - If the packet was correctly addressed to this process by checking the PID stored in the ID field of ICMP Echo Request.
 - If it's an error packet or not.
 
-ft_ping will ping the targeted host until `Ctrl+C` is pressed. It will then display statistics about the received ICMP echo responses.
+ft_ping will ping the targeted host until `Ctrl+C` is pressed. It will then display statistics about the received ICMP Echo Response packets.
 
 ft_ping can accept a simple IPv4 address or hostname as a parameter. It supports both numerical IP addresses and hostnames.
 
-ft_ping supports the following options :
+ft_ping supports also the following options :
 - `-h`: provides help information about the usage and command-line options of ft_ping.
 - `-q`: enables quiet output, ft_ping will only display the end statistics.
 - `-v`: enables verbose output and allows viewing the results in case of problems or errors related to the packets.
 
-*Example of error packet with verbose output*
+*Example of error packet (packet filtered) with verbose output*
 
 ![Alt text](https://github.com/llefranc/42_ft_ping/blob/main/ft_ping_example2.png)
 
