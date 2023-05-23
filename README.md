@@ -1,5 +1,7 @@
 # ft_ping (@42Paris)
----
+
+![Alt text](https://github.com/llefranc/42_ft_ping/blob/main/ft_ping_example.png)
+
 ## About
 
 ft_ping is a reimplementation in C of the ping utility based on the ping implementation from inetutils-2.0.
@@ -15,6 +17,8 @@ ft_ping supports the following options :
 - h option: The -h option provides help information about the usage and command-line options of ft_ping.
 - q option: The -q option enables quiet output, ft_ping will only display the end statistics.
 - v option: The -v option enables verbose output and allows viewing the results in case of problems or errors related to the packets.
+
+- Here is the [subject][2]
 
 ### Building and running the project
 
@@ -48,8 +52,9 @@ Error messages and feedback will be displayed using the printf functions, provid
 
 ## Sources
 
-- [RFC of ICMP protocol][3]
-- [RFC of IP protocol][4]
+- [RFC of ICMP protocol][2]
+- [RFC of IP protocol][3]
 
-[3]: https://www.rfc-editor.org/rfc/rfc792
-[4]: https://www.rfc-editor.org/rfc/rfc791
+[1]: https://github.com/llefranc/42_ft_ping/blob/main/ft_ping.en.subject.pdf
+[2]: https://www.rfc-editor.org/rfc/rfc792
+[3]: https://www.rfc-editor.org/rfc/rfc791
